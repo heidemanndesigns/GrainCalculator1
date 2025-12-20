@@ -20,11 +20,14 @@
 			<li aria-current={page.url.pathname === '/' ? 'page' : undefined}>
 				<a href={resolve('/')}>Home</a>
 			</li>
-			<li aria-current={page.url.pathname === '/about' ? 'page' : undefined}>
-				<a href={resolve('/about')}>About</a>
+			<li aria-current={page.url.pathname.startsWith('/grain-calculator') ? 'page' : undefined}>
+				<a href={resolve('/grain-calculator')}>Grain Calculator</a>
 			</li>
-			<li aria-current={page.url.pathname.startsWith('/sverdle') ? 'page' : undefined}>
-				<a href={resolve('/sverdle')}>Sverdle</a>
+			<li aria-current={page.url.pathname.startsWith('/asset-tracker') ? 'page' : undefined}>
+				<a href={resolve('/asset-tracker')}>Asset Tracker</a>
+			</li>
+			<li aria-current={page.url.pathname.startsWith('/soil-moisture') ? 'page' : undefined}>
+				<a href={resolve('/soil-moisture')}>Soil Moisture</a>
 			</li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
