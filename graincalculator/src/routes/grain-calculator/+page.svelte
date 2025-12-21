@@ -209,26 +209,6 @@
 			</div>
 		</div>
 	{/if}
-
-	{#if dryWeight > 0}
-		<div class="results">
-			<h2>Results</h2>
-			<div class="result-card">
-				<div class="result-item">
-					<span class="label">Dry Weight:</span>
-					<span class="value">{dryWeight.toFixed(2)}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Shrink Factor:</span>
-					<span class="value">{shrinkFactor.toFixed(4)}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Moisture Shrink:</span>
-					<span class="value">{moistureShrink.toFixed(2)}</span>
-				</div>
-			</div>
-		</div>
-	{/if}
 </section>
 
 <style>
