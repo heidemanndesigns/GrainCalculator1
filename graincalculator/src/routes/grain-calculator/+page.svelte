@@ -1,5 +1,10 @@
 <script>
+	let isTopSectionLocked = $state(false);
+	let loadNumber = $state('');
+	let date = $state('');
 	let fieldNumber = $state('');
+	let operator = $state('');
+	let totalFieldAcres = $state(0);
 	let wetWeight = $state(0);
 	let moistureContent = $state(0);
 	let targetMoisture = $state(15.5); // Standard target moisture for corn
@@ -25,8 +30,22 @@
 		}
 	});
 
-	function reset() {
+	function enterTopSection() {
+		isTopSectionLocked = true;
+	}
+
+	function newTopSection() {
+		isTopSectionLocked = false;
+		date = '';
 		fieldNumber = '';
+		operator = '';
+		totalFieldAcres = 0;
+	}
+
+	function enterLoad() {
+		// TODO: Save/process the load data here
+		// For now, reset the form after entering the load
+		loadNumber = '';
 		wetWeight = 0;
 		moistureContent = 0;
 		targetMoisture = 15.5;
@@ -46,18 +65,74 @@
 	</p>
 
 	<div class="form-container">
+		<div class="top-section" class:locked={isTopSectionLocked}>
+			<div class="input-row">
+				<div class="input-group">
+					<label for="date">Date</label>
+					<input
+						id="date"
+						type="date"
+						bind:value={date}
+						disabled={isTopSectionLocked}
+					/>
+				</div>
+
+				<div class="input-group">
+					<label for="operator">Operator</label>
+					<input
+						id="operator"
+						type="text"
+						bind:value={operator}
+						placeholder="Enter operator name"
+						disabled={isTopSectionLocked}
+					/>
+				</div>
+
+				<div class="input-group">
+					<label for="field-number">Field Number</label>
+					<input
+						id="field-number"
+						type="text"
+						bind:value={fieldNumber}
+						placeholder="Enter field number"
+						disabled={isTopSectionLocked}
+					/>
+				</div>
+			</div>
+
+			<div class="input-group">
+				<label for="total-field-acres">Total Field Acres</label>
+				<input
+					id="total-field-acres"
+					type="number"
+					step="0.01"
+					min="0"
+					bind:value={totalFieldAcres}
+					placeholder="0"
+					disabled={isTopSectionLocked}
+				/>
+			</div>
+
+			<div class="top-section-buttons">
+				<button class="enter-btn" onclick={enterTopSection} disabled={isTopSectionLocked}>Enter</button>
+				<button class="new-btn" onclick={newTopSection}>New</button>
+			</div>
+		</div>
+
+		<hr class="form-divider" />
+
 		<div class="input-group">
-			<label for="field-number">Field Number</label>
+			<label for="load-number">Load Number</label>
 			<input
-				id="field-number"
+				id="load-number"
 				type="text"
-				bind:value={fieldNumber}
-				placeholder="Enter field number"
+				bind:value={loadNumber}
+				placeholder="Enter load number"
 			/>
 		</div>
 
 		<div class="input-group">
-			<label for="wet-weight">Wet Weight (bushels or lbs)</label>
+			<label for="wet-weight">Wet Weight</label>
 			<input
 				id="wet-weight"
 				type="number"
@@ -94,7 +169,7 @@
 			/>
 		</div>
 
-		<button class="reset-btn" onclick={reset}>Reset</button>
+		<button class="reset-btn" onclick={enterLoad}>Enter Load</button>
 	</div>
 
 	{#if dryWeight > 0}
@@ -146,6 +221,17 @@
 		margin-bottom: 2rem;
 	}
 
+	.input-row {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.input-row .input-group {
+		flex: 1;
+		margin-bottom: 0;
+	}
+
 	.input-group {
 		margin-bottom: 1.5rem;
 	}
@@ -170,6 +256,65 @@
 	.input-group input:focus {
 		outline: none;
 		border-color: var(--color-theme-2);
+	}
+
+	.input-group input:disabled {
+		background-color: #e0e0e0;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.top-section.locked {
+		opacity: 0.7;
+	}
+
+	.top-section-buttons {
+		display: flex;
+		gap: 1rem;
+		margin-top: 1rem;
+		margin-bottom: 0;
+	}
+
+	.enter-btn,
+	.new-btn {
+		flex: 1;
+		padding: 0.75rem;
+		border: none;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.enter-btn {
+		background: #4caf50;
+		color: white;
+	}
+
+	.enter-btn:hover:not(:disabled) {
+		background: #45a049;
+	}
+
+	.enter-btn:disabled {
+		background: #cccccc;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.new-btn {
+		background: #2196f3;
+		color: white;
+	}
+
+	.new-btn:hover {
+		background: #0b7dda;
+	}
+
+	.form-divider {
+		border: none;
+		border-top: 2px solid rgba(0, 0, 0, 0.1);
+		margin: 1.5rem 0;
 	}
 
 	.reset-btn {
@@ -227,6 +372,16 @@
 		font-size: 1.25rem;
 		font-weight: 700;
 		color: var(--color-theme-2);
+	}
+
+	@media (max-width: 640px) {
+		.input-row {
+			flex-direction: column;
+		}
+
+		.input-row .input-group {
+			margin-bottom: 1.5rem;
+		}
 	}
 
 	@media (min-width: 640px) {
