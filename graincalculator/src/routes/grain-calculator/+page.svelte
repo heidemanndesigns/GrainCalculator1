@@ -5,6 +5,7 @@
 	let fieldNumber = $state('');
 	let operator = $state('');
 	let totalFieldAcres = $state(0);
+	let manualShrinkFactor = $state(0);
 	let wetWeight = $state(0);
 	let moistureContent = $state(0);
 	let targetMoisture = $state(15.5); // Standard target moisture for corn
@@ -12,6 +13,11 @@
 	let dryWeight = $derived(0);
 	let shrinkFactor = $derived(0);
 	let moistureShrink = $derived(0);
+
+	let calculatedWetBushels = $state(0);
+	let calculatedDryWeight = $state(0);
+	let calculatedDryBushels = $state(0);
+	let showLoadResults = $state(false);
 
 	$effect(() => {
 		if (wetWeight > 0 && moistureContent > 0 && targetMoisture >= 0) {
@@ -40,15 +46,23 @@
 		fieldNumber = '';
 		operator = '';
 		totalFieldAcres = 0;
+		manualShrinkFactor = 0;
 	}
 
 	function enterLoad() {
+		// Calculate values
+		if (wetWeight > 0 && moistureContent > 0 && manualShrinkFactor > 0) {
+			calculatedWetBushels = wetWeight / 56;
+			calculatedDryWeight = wetWeight - (wetWeight * (moistureContent - 15) * manualShrinkFactor);
+			calculatedDryBushels = calculatedDryWeight / 56;
+			showLoadResults = true;
+		}
+		
 		// TODO: Save/process the load data here
-		// For now, reset the form after entering the load
+		// Reset the load-specific fields after entering
 		loadNumber = '';
 		wetWeight = 0;
 		moistureContent = 0;
-		targetMoisture = 15.5;
 	}
 </script>
 
@@ -100,17 +114,32 @@
 				</div>
 			</div>
 
-			<div class="input-group">
-				<label for="total-field-acres">Total Field Acres</label>
-				<input
-					id="total-field-acres"
-					type="number"
-					step="0.01"
-					min="0"
-					bind:value={totalFieldAcres}
-					placeholder="0"
-					disabled={isTopSectionLocked}
-				/>
+			<div class="input-row">
+				<div class="input-group">
+					<label for="total-field-acres">Total Field Acres</label>
+					<input
+						id="total-field-acres"
+						type="number"
+						step="0.01"
+						min="0"
+						bind:value={totalFieldAcres}
+						placeholder="0"
+						disabled={isTopSectionLocked}
+					/>
+				</div>
+
+				<div class="input-group">
+					<label for="manual-shrink-factor">Shrink Factor</label>
+					<input
+						id="manual-shrink-factor"
+						type="number"
+						step="0.0001"
+						min="0"
+						bind:value={manualShrinkFactor}
+						placeholder="0"
+						disabled={isTopSectionLocked}
+					/>
+				</div>
 			</div>
 
 			<div class="top-section-buttons">
@@ -131,46 +160,55 @@
 			/>
 		</div>
 
-		<div class="input-group">
-			<label for="wet-weight">Wet Weight</label>
-			<input
-				id="wet-weight"
-				type="number"
-				step="0.01"
-				min="0"
-				bind:value={wetWeight}
-				placeholder="0"
-			/>
+		<div class="input-row">
+			<div class="input-group">
+				<label for="wet-weight">Wet Weight</label>
+				<input
+					id="wet-weight"
+					type="number"
+					step="0.01"
+					min="0"
+					bind:value={wetWeight}
+					placeholder="0"
+				/>
+			</div>
+
+			<div class="input-group">
+				<label for="moisture">Current Moisture Content (%)</label>
+				<input
+					id="moisture"
+					type="number"
+					step="0.1"
+					min="0"
+					max="100"
+					bind:value={moistureContent}
+					placeholder="0"
+				/>
+			</div>
 		</div>
 
-		<div class="input-group">
-			<label for="moisture">Current Moisture Content (%)</label>
-			<input
-				id="moisture"
-				type="number"
-				step="0.1"
-				min="0"
-				max="100"
-				bind:value={moistureContent}
-				placeholder="0"
-			/>
-		</div>
-
-		<div class="input-group">
-			<label for="target">Target Moisture Content (%)</label>
-			<input
-				id="target"
-				type="number"
-				step="0.1"
-				min="0"
-				max="100"
-				bind:value={targetMoisture}
-				placeholder="15.5"
-			/>
-		</div>
-
-		<button class="reset-btn" onclick={enterLoad}>Enter Load</button>
+		<button class="reset-btn" onclick={enterLoad}>Calculate and Enter Load</button>
 	</div>
+
+	{#if showLoadResults}
+		<div class="load-results">
+			<h2>Load Calculation Results</h2>
+			<div class="result-card">
+				<div class="result-item">
+					<span class="label">Wet Bushels:</span>
+					<span class="value">{calculatedWetBushels.toFixed(2)}</span>
+				</div>
+				<div class="result-item">
+					<span class="label">Dry Weight:</span>
+					<span class="value">{calculatedDryWeight.toFixed(2)}</span>
+				</div>
+				<div class="result-item">
+					<span class="label">Dry Bushels:</span>
+					<span class="value">{calculatedDryBushels.toFixed(2)}</span>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if dryWeight > 0}
 		<div class="results">
@@ -334,14 +372,17 @@
 		background: #cc2e00;
 	}
 
-	.results {
+	.results,
+	.load-results {
 		background: rgba(255, 255, 255, 0.7);
 		border-radius: 8px;
 		padding: 2rem;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		margin-top: 2rem;
 	}
 
-	.results h2 {
+	.results h2,
+	.load-results h2 {
 		margin-top: 0;
 		margin-bottom: 1.5rem;
 		color: var(--color-theme-2);
