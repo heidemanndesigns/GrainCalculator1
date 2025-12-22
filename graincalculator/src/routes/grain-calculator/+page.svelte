@@ -18,6 +18,7 @@
 	let calculatedDryWeight = $state(0);
 	let calculatedDryBushels = $state(0);
 	let showLoadResults = $state(false);
+	let showModal = $state(false);
 	let displayedLoadNumber = $state('');
 	let displayedWetWeight = $state(0);
 	let displayedMoistureContent = $state(0);
@@ -65,6 +66,7 @@
 			displayedMoistureContent = moistureContent;
 			
 			showLoadResults = true;
+			showModal = true;
 		}
 		
 		// TODO: Save/process the load data here
@@ -72,6 +74,15 @@
 		loadNumber = '';
 		wetWeight = 0;
 		moistureContent = 0;
+	}
+
+	function closeModal() {
+		showModal = false;
+	}
+
+	function viewPreviousLoadResults() {
+		// TODO: Implement view previous load results functionality
+		closeModal();
 	}
 </script>
 
@@ -201,39 +212,56 @@
 
 		<button class="reset-btn" onclick={enterLoad}>Calculate and Enter Load</button>
 	</div>
-
-	{#if showLoadResults}
-		<div class="load-results">
-			<h2>Load Calculation Results</h2>
-			<div class="result-card">
-				<div class="result-item">
-					<span class="label">Load Number:</span>
-					<span class="value">{displayedLoadNumber || 'N/A'}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Wet Weight:</span>
-					<span class="value">{displayedWetWeight.toFixed(2)}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Current Moisture Content:</span>
-					<span class="value">{displayedMoistureContent.toFixed(1)}%</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Wet Bushels:</span>
-					<span class="value">{calculatedWetBushels.toFixed(2)}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Dry Weight:</span>
-					<span class="value">{calculatedDryWeight.toFixed(2)}</span>
-				</div>
-				<div class="result-item">
-					<span class="label">Dry Bushels:</span>
-					<span class="value">{calculatedDryBushels.toFixed(2)}</span>
-				</div>
-			</div>
-		</div>
-	{/if}
 </section>
+
+{#if showModal}
+	<div 
+		class="modal-overlay" 
+		onclick={closeModal}
+		onkeydown={(e) => e.key === 'Escape' && closeModal()}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="modal-title"
+		tabindex="-1"
+	>
+		<article 
+			class="modal-content" 
+			onclick={(e) => e.stopPropagation()}
+		>
+			<button class="modal-close" onclick={closeModal}>×</button>
+			<div class="load-results">
+				<h2 id="modal-title">Load Calculation Results</h2>
+				<div class="result-card">
+					<div class="result-item">
+						<span class="label">Load Number:</span>
+						<span class="value">{displayedLoadNumber || 'N/A'}</span>
+					</div>
+					<div class="result-item">
+						<span class="label">Wet Weight:</span>
+						<span class="value">{displayedWetWeight.toFixed(2)}</span>
+					</div>
+					<div class="result-item">
+						<span class="label">Current Moisture Content:</span>
+						<span class="value">{displayedMoistureContent.toFixed(1)}%</span>
+					</div>
+					<div class="result-item">
+						<span class="label">Wet Bushels:</span>
+						<span class="value">{calculatedWetBushels.toFixed(2)}</span>
+					</div>
+					<div class="result-item">
+						<span class="label">Dry Weight:</span>
+						<span class="value">{calculatedDryWeight.toFixed(2)}</span>
+					</div>
+					<div class="result-item">
+						<span class="label">Dry Bushels:</span>
+						<span class="value">{calculatedDryBushels.toFixed(2)}</span>
+					</div>
+				</div>
+				<button class="view-previous-btn" onclick={viewPreviousLoadResults}>View Previous Load Results</button>
+			</div>
+		</article>
+	</div>
+{/if}
 
 <style>
 	.calculator {
@@ -398,16 +426,80 @@
 		background: #cc2e00;
 	}
 
-	.results,
-	.load-results {
-		background: rgba(255, 255, 255, 0.7);
-		border-radius: 8px;
-		padding: 2rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		margin-top: 2rem;
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
 	}
 
-	.results h2,
+	.modal-content {
+		position: relative;
+		background: white;
+		border-radius: 8px;
+		padding: 2rem;
+		max-width: 600px;
+		width: 90%;
+		max-height: 90vh;
+		overflow-y: auto;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+	}
+
+	.modal-close {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		background: transparent;
+		border: none;
+		font-size: 2rem;
+		line-height: 1;
+		cursor: pointer;
+		color: var(--color-text);
+		padding: 0;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		transition: background 0.2s;
+	}
+
+	.modal-close:hover {
+		background: rgba(0, 0, 0, 0.1);
+	}
+
+	.load-results {
+		background: transparent;
+		padding: 0;
+		margin: 0;
+		box-shadow: none;
+	}
+
+	.view-previous-btn {
+		width: 100%;
+		padding: 0.75rem;
+		background: var(--color-theme-2);
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.2s;
+		margin-top: 1.5rem;
+	}
+
+	.view-previous-btn:hover {
+		background: #1a5a8a;
+	}
+
 	.load-results h2 {
 		margin-top: 0;
 		margin-bottom: 1.5rem;
