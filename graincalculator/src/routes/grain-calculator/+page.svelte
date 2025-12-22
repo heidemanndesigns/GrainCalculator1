@@ -139,15 +139,18 @@
 
 				<div class="input-group">
 					<label for="manual-shrink-factor">Shrink Factor</label>
-					<input
+					<select
 						id="manual-shrink-factor"
-						type="number"
-						step="0.0001"
-						min="0"
 						bind:value={manualShrinkFactor}
-						placeholder="0"
 						disabled={isTopSectionLocked}
-					/>
+					>
+						<option value={0}>Select shrink factor</option>
+						<option value={0.013}>0.013</option>
+						<option value={0.0135}>0.0135</option>
+						<option value={0.014}>0.014</option>
+						<option value={0.0145}>0.0145</option>
+						<option value={0.015}>0.015</option>
+					</select>
 				</div>
 			</div>
 
@@ -298,6 +301,28 @@
 	}
 
 	.input-group input:disabled {
+		background-color: #e0e0e0;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.input-group select {
+		width: 100%;
+		padding: 0.75rem;
+		border: 2px solid rgba(0, 0, 0, 0.1);
+		border-radius: 4px;
+		font-size: 1rem;
+		box-sizing: border-box;
+		transition: border-color 0.2s;
+		background-color: white;
+	}
+
+	.input-group select:focus {
+		outline: none;
+		border-color: var(--color-theme-2);
+	}
+
+	.input-group select:disabled {
 		background-color: #e0e0e0;
 		cursor: not-allowed;
 		opacity: 0.6;
