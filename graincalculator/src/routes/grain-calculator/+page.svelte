@@ -23,6 +23,11 @@
 	let displayedWetWeight = $state(0);
 	let displayedMoistureContent = $state(0);
 
+	// Chatbot state
+	let chatbotOpen = $state(false);
+	let chatbotMessages = $state([]);
+	let chatbotInput = $state('');
+
 	$effect(() => {
 		if (wetWeight > 0 && moistureContent > 0 && targetMoisture >= 0) {
 			// Calculate shrink factor
@@ -80,9 +85,64 @@
 		showModal = false;
 	}
 
-	function viewPreviousLoadResults() {
-		// TODO: Implement view previous load results functionality
-		closeModal();
+	// Google Sheet URL - replace with your actual Google Sheet URL
+	// You can use fieldNumber in the URL if needed
+	let googleSheetUrl = $derived(
+		fieldNumber 
+			? `https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0&range=A1&q=${encodeURIComponent(fieldNumber)}`
+			: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0'
+	);
+
+	// Chatbot functions
+	function toggleChatbot() {
+		chatbotOpen = !chatbotOpen;
+		if (chatbotOpen && chatbotMessages.length === 0) {
+			// Add welcome message
+			chatbotMessages = [{
+				type: 'bot',
+				text: 'Hello! I can help you with questions about your grain loads. What would you like to know?'
+			}];
+		}
+	}
+
+	function sendChatbotMessage() {
+		if (!chatbotInput.trim()) return;
+
+		// Add user message
+		chatbotMessages = [...chatbotMessages, {
+			type: 'user',
+			text: chatbotInput
+		}];
+
+		const userMessage = chatbotInput.toLowerCase();
+		chatbotInput = '';
+
+		// Simulate bot response (you can replace this with actual API call)
+		setTimeout(() => {
+			let botResponse = 'I can help you with questions about your loads. ';
+			
+			if (userMessage.includes('load') || userMessage.includes('field')) {
+				botResponse = 'I can provide information about your loads. Currently, I can see you\'re working with Field Number: ' + (fieldNumber || 'not set') + '. Would you like to know more about a specific load?';
+			} else if (userMessage.includes('weight') || userMessage.includes('bushel')) {
+				botResponse = 'I can help with weight and bushel calculations. The current calculation shows Wet Bushels, Dry Weight, and Dry Bushels. What specific information do you need?';
+			} else if (userMessage.includes('moisture') || userMessage.includes('shrink')) {
+				botResponse = 'I can help with moisture content and shrink factor questions. The shrink factor is used to calculate dry weight from wet weight. What would you like to know?';
+			} else {
+				botResponse = 'I can help you with questions about your grain loads, including load numbers, weights, moisture content, and calculations. What specific information are you looking for?';
+			}
+
+			chatbotMessages = [...chatbotMessages, {
+				type: 'bot',
+				text: botResponse
+			}];
+		}, 500);
+	}
+
+	function handleChatbotKeydown(event) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			sendChatbotMessage();
+		}
 	}
 </script>
 
@@ -213,7 +273,18 @@
 			</div>
 		</div>
 
-		<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked}>Calculate and Enter Load</button>
+		<div class="button-row">
+			<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked}>Calculate and Enter Load</button>
+			<a 
+				href={googleSheetUrl} 
+				target="_blank" 
+				rel="noopener noreferrer"
+				class="view-previous-link"
+				class:disabled={!isTopSectionLocked}
+			>
+				View Previous Load Results
+			</a>
+		</div>
 	</div>
 </section>
 
@@ -260,11 +331,47 @@
 						<span class="value">{calculatedDryBushels.toFixed(2)}</span>
 					</div>
 				</div>
-				<button class="view-previous-btn" onclick={viewPreviousLoadResults}>View Previous Load Results</button>
 			</div>
 		</article>
 	</div>
 {/if}
+
+<!-- Chatbot -->
+<div class="chatbot-container">
+	{#if chatbotOpen}
+		<div class="chatbot-window">
+			<div class="chatbot-header">
+				<h3>Load Assistant</h3>
+				<button class="chatbot-close" onclick={toggleChatbot}>×</button>
+			</div>
+			<div class="chatbot-messages">
+				{#each chatbotMessages as message}
+					<div class="chatbot-message" class:user-message={message.type === 'user'}>
+						<div class="message-content">
+							{message.text}
+						</div>
+					</div>
+				{/each}
+			</div>
+			<div class="chatbot-input-container">
+				<input
+					type="text"
+					class="chatbot-input"
+					placeholder="Ask a question about your loads..."
+					bind:value={chatbotInput}
+					onkeydown={handleChatbotKeydown}
+				/>
+				<button class="chatbot-send" onclick={sendChatbotMessage}>Send</button>
+			</div>
+		</div>
+	{:else}
+		<button class="chatbot-toggle" onclick={toggleChatbot} aria-label="Open chatbot">
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+			</svg>
+		</button>
+	{/if}
+</div>
 
 <style>
 	.calculator {
@@ -435,6 +542,44 @@
 		opacity: 0.6;
 	}
 
+	.button-row {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.button-row .reset-btn {
+		flex: 1;
+	}
+
+	.view-previous-link {
+		flex: 1;
+		padding: 0.75rem;
+		background: var(--color-theme-2);
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-weight: 600;
+		text-decoration: none;
+		text-align: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.2s;
+		cursor: pointer;
+	}
+
+	.view-previous-link:hover:not(.disabled) {
+		background: #1a5a8a;
+	}
+
+	.view-previous-link.disabled {
+		background: #cccccc;
+		cursor: not-allowed;
+		opacity: 0.6;
+		pointer-events: none;
+	}
+
 	.modal-overlay {
 		position: fixed;
 		top: 0;
@@ -491,23 +636,6 @@
 		box-shadow: none;
 	}
 
-	.view-previous-btn {
-		width: 100%;
-		padding: 0.75rem;
-		background: var(--color-theme-2);
-		color: white;
-		border: none;
-		border-radius: 4px;
-		font-size: 1rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.2s;
-		margin-top: 1.5rem;
-	}
-
-	.view-previous-btn:hover {
-		background: #1a5a8a;
-	}
 
 	.load-results h2 {
 		margin-top: 0;
@@ -549,6 +677,162 @@
 
 		.input-row .input-group {
 			margin-bottom: 1.5rem;
+		}
+	}
+
+	/* Chatbot Styles */
+	.chatbot-container {
+		position: fixed;
+		bottom: 20px;
+		right: 20px;
+		z-index: 999;
+	}
+
+	.chatbot-toggle {
+		width: 60px;
+		height: 60px;
+		border-radius: 50%;
+		background: var(--color-theme-2);
+		color: white;
+		border: none;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+		transition: transform 0.2s, box-shadow 0.2s;
+	}
+
+	.chatbot-toggle:hover {
+		transform: scale(1.1);
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+	}
+
+	.chatbot-window {
+		width: 380px;
+		height: 500px;
+		background: white;
+		border-radius: 12px;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.chatbot-header {
+		background: var(--color-theme-2);
+		color: white;
+		padding: 1rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.chatbot-header h3 {
+		margin: 0;
+		font-size: 1.1rem;
+		font-weight: 600;
+	}
+
+	.chatbot-close {
+		background: transparent;
+		border: none;
+		color: white;
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
+		padding: 0;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition: background 0.2s;
+	}
+
+	.chatbot-close:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.chatbot-messages {
+		flex: 1;
+		overflow-y: auto;
+		padding: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		background: #f5f5f5;
+	}
+
+	.chatbot-message {
+		display: flex;
+		align-items: flex-start;
+	}
+
+	.chatbot-message.user-message {
+		justify-content: flex-end;
+	}
+
+	.message-content {
+		max-width: 75%;
+		padding: 0.75rem 1rem;
+		border-radius: 12px;
+		background: white;
+		color: var(--color-text);
+		font-size: 0.9rem;
+		line-height: 1.4;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	}
+
+	.chatbot-message.user-message .message-content {
+		background: var(--color-theme-2);
+		color: white;
+	}
+
+	.chatbot-input-container {
+		display: flex;
+		gap: 0.5rem;
+		padding: 1rem;
+		background: white;
+		border-top: 1px solid #e0e0e0;
+	}
+
+	.chatbot-input {
+		flex: 1;
+		padding: 0.75rem;
+		border: 1px solid #e0e0e0;
+		border-radius: 8px;
+		font-size: 0.9rem;
+		outline: none;
+		transition: border-color 0.2s;
+	}
+
+	.chatbot-input:focus {
+		border-color: var(--color-theme-2);
+	}
+
+	.chatbot-send {
+		padding: 0.75rem 1.5rem;
+		background: var(--color-theme-2);
+		color: white;
+		border: none;
+		border-radius: 8px;
+		font-size: 0.9rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.chatbot-send:hover {
+		background: #1a5a8a;
+	}
+
+	@media (max-width: 640px) {
+		.chatbot-window {
+			width: calc(100vw - 40px);
+			height: calc(100vh - 100px);
+			max-height: 500px;
 		}
 	}
 
