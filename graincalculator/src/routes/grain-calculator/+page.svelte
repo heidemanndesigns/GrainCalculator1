@@ -341,7 +341,7 @@
 	{#if chatbotOpen}
 		<div class="chatbot-window">
 			<div class="chatbot-header">
-				<h3>Load Assistant</h3>
+				<h3>Harvest IQ</h3>
 				<button class="chatbot-close" onclick={toggleChatbot}>×</button>
 			</div>
 			<div class="chatbot-messages">
