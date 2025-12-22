@@ -154,8 +154,7 @@
 <section class="calculator">
 	<h1>Dry Grain Calculator</h1>
 	<p class="description">
-		Calculate the dry weight of grain after accounting for moisture content. Enter the wet weight
-		and current moisture percentage to determine the dry weight at your target moisture level.
+		Calculate the dry weight of grain after accounting for shrinkage. Enter the wet weight and current moisture content to determine the dry weight and dry bushels.
 	</p>
 
 	<div class="form-container">
