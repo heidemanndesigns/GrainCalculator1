@@ -180,6 +180,7 @@
 				type="text"
 				bind:value={loadNumber}
 				placeholder="Enter load number"
+				disabled={!isTopSectionLocked}
 			/>
 		</div>
 
@@ -193,6 +194,7 @@
 					min="0"
 					bind:value={wetWeight}
 					placeholder="0"
+					disabled={!isTopSectionLocked}
 				/>
 			</div>
 
@@ -206,11 +208,12 @@
 					max="100"
 					bind:value={moistureContent}
 					placeholder="0"
+					disabled={!isTopSectionLocked}
 				/>
 			</div>
 		</div>
 
-		<button class="reset-btn" onclick={enterLoad}>Calculate and Enter Load</button>
+		<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked}>Calculate and Enter Load</button>
 	</div>
 </section>
 
@@ -422,8 +425,14 @@
 		transition: background 0.2s;
 	}
 
-	.reset-btn:hover {
+	.reset-btn:hover:not(:disabled) {
 		background: #cc2e00;
+	}
+
+	.reset-btn:disabled {
+		background: #cccccc;
+		cursor: not-allowed;
+		opacity: 0.6;
 	}
 
 	.modal-overlay {
