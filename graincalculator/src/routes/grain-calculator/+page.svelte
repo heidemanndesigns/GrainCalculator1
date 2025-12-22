@@ -18,6 +18,9 @@
 	let calculatedDryWeight = $state(0);
 	let calculatedDryBushels = $state(0);
 	let showLoadResults = $state(false);
+	let displayedLoadNumber = $state('');
+	let displayedWetWeight = $state(0);
+	let displayedMoistureContent = $state(0);
 
 	$effect(() => {
 		if (wetWeight > 0 && moistureContent > 0 && targetMoisture >= 0) {
@@ -55,6 +58,12 @@
 			calculatedWetBushels = wetWeight / 56;
 			calculatedDryWeight = wetWeight - (wetWeight * (moistureContent - 15) * manualShrinkFactor);
 			calculatedDryBushels = calculatedDryWeight / 56;
+			
+			// Store values for display
+			displayedLoadNumber = loadNumber;
+			displayedWetWeight = wetWeight;
+			displayedMoistureContent = moistureContent;
+			
 			showLoadResults = true;
 		}
 		
@@ -194,6 +203,18 @@
 		<div class="load-results">
 			<h2>Load Calculation Results</h2>
 			<div class="result-card">
+				<div class="result-item">
+					<span class="label">Load Number:</span>
+					<span class="value">{displayedLoadNumber || 'N/A'}</span>
+				</div>
+				<div class="result-item">
+					<span class="label">Wet Weight:</span>
+					<span class="value">{displayedWetWeight.toFixed(2)}</span>
+				</div>
+				<div class="result-item">
+					<span class="label">Current Moisture Content:</span>
+					<span class="value">{displayedMoistureContent.toFixed(1)}%</span>
+				</div>
 				<div class="result-item">
 					<span class="label">Wet Bushels:</span>
 					<span class="value">{calculatedWetBushels.toFixed(2)}</span>
