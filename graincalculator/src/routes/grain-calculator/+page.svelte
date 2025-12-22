@@ -451,16 +451,5 @@
 		}
 	}
 
-	@media (min-width: 640px) {
-		.result-card {
-			flex-direction: row;
-			flex-wrap: wrap;
-		}
-
-		.result-item {
-			flex: 1;
-			min-width: 200px;
-		}
-	}
 </style>
 
