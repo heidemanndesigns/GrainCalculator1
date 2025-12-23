@@ -23,6 +23,15 @@
 	let displayedWetWeight = $state(0);
 	let displayedMoistureContent = $state(0);
 
+	// Validation: check if all required top section fields are filled
+	let isTopSectionValid = $derived(
+		date.trim() !== '' &&
+		operator.trim() !== '' &&
+		fieldNumber.trim() !== '' &&
+		totalFieldAcres > 0 &&
+		manualShrinkFactor > 0
+	);
+
 	// Chatbot state
 	let chatbotOpen = $state(false);
 	let chatbotMessages = $state([]);
@@ -46,7 +55,10 @@
 	});
 
 	function enterTopSection() {
-		isTopSectionLocked = true;
+		// Validate all required fields before locking
+		if (isTopSectionValid) {
+			isTopSectionLocked = true;
+		}
 	}
 
 	function newTopSection() {
@@ -161,41 +173,44 @@
 		<div class="top-section" class:locked={isTopSectionLocked}>
 			<div class="input-row">
 				<div class="input-group">
-					<label for="date">Date</label>
+					<label for="date">Date <span class="required">*</span></label>
 					<input
 						id="date"
 						type="date"
 						bind:value={date}
 						disabled={isTopSectionLocked}
+						required
 					/>
 				</div>
 
 				<div class="input-group">
-					<label for="operator">Operator</label>
+					<label for="operator">Operator <span class="required">*</span></label>
 					<input
 						id="operator"
 						type="text"
 						bind:value={operator}
 						placeholder="Enter operator name"
 						disabled={isTopSectionLocked}
+						required
 					/>
 				</div>
 
 				<div class="input-group">
-					<label for="field-number">Field Number</label>
+					<label for="field-number">Field Number <span class="required">*</span></label>
 					<input
 						id="field-number"
 						type="text"
 						bind:value={fieldNumber}
 						placeholder="Enter field number"
 						disabled={isTopSectionLocked}
+						required
 					/>
 				</div>
 			</div>
 
 			<div class="input-row">
 				<div class="input-group">
-					<label for="total-field-acres">Total Field Acres</label>
+					<label for="total-field-acres">Total Field Acres <span class="required">*</span></label>
 					<input
 						id="total-field-acres"
 						type="number"
@@ -204,15 +219,17 @@
 						bind:value={totalFieldAcres}
 						placeholder="0"
 						disabled={isTopSectionLocked}
+						required
 					/>
 				</div>
 
 				<div class="input-group">
-					<label for="manual-shrink-factor">Shrink Factor</label>
+					<label for="manual-shrink-factor">Shrink Factor <span class="required">*</span></label>
 					<select
 						id="manual-shrink-factor"
 						bind:value={manualShrinkFactor}
 						disabled={isTopSectionLocked}
+						required
 					>
 						<option value={0}>Select shrink factor</option>
 						<option value={0.013}>0.013</option>
@@ -225,7 +242,7 @@
 			</div>
 
 			<div class="top-section-buttons">
-				<button class="enter-btn" onclick={enterTopSection} disabled={isTopSectionLocked}>Enter</button>
+				<button class="enter-btn" onclick={enterTopSection} disabled={isTopSectionLocked || !isTopSectionValid}>Enter</button>
 				<button class="new-btn" onclick={newTopSection}>New</button>
 			</div>
 		</div>
@@ -419,6 +436,11 @@
 		margin-bottom: 0.5rem;
 		font-weight: 600;
 		color: var(--color-text);
+	}
+
+	.input-group label .required {
+		color: #d32f2f;
+		margin-left: 2px;
 	}
 
 	.input-group input {
