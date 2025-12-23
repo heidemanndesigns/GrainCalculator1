@@ -49,6 +49,12 @@
 		editingFieldId = null;
 	}
 
+	function handleFieldFormOverlayClick(event) {
+		if (event.target === event.currentTarget) {
+			closeFieldForm();
+		}
+	}
+
 	function saveField() {
 		if (!fieldFormData.name) {
 			alert('Please enter a field name');
@@ -89,6 +95,12 @@
 	function closeReadingForm() {
 		showReadingForm = false;
 		selectedFieldId = null;
+	}
+
+	function handleReadingFormOverlayClick(event) {
+		if (event.target === event.currentTarget) {
+			closeReadingForm();
+		}
 	}
 
 	function saveReading() {
@@ -237,115 +249,135 @@
 	{/if}
 
 	{#if showFieldForm}
-		<div class="modal-overlay" onclick={closeFieldForm}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
-				<div class="modal-header">
-					<h2>{editingFieldId ? 'Edit Field' : 'Add Field'}</h2>
-					<button class="close-btn" onclick={closeFieldForm}>×</button>
+		<div 
+			class="modal-overlay" 
+			onclick={handleFieldFormOverlayClick}
+			onkeydown={(e) => e.key === 'Escape' && closeFieldForm()}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="field-form-title"
+			tabindex="-1"
+		>
+			<article class="modal">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h2 id="field-form-title">{editingFieldId ? 'Edit Field' : 'Add Field'}</h2>
+						<button class="close-btn" onclick={closeFieldForm} aria-label="Close dialog">×</button>
+					</div>
+
+					<form
+						class="modal-body"
+						onsubmit={(e) => {
+							e.preventDefault();
+							saveField();
+						}}
+					>
+						<div class="form-group">
+							<label for="field-name">Field Name *</label>
+							<input id="field-name" type="text" bind:value={fieldFormData.name} required />
+						</div>
+
+						<div class="form-group">
+							<label for="field-number">Field Number</label>
+							<input id="field-number" type="text" bind:value={fieldFormData.fieldNumber} />
+						</div>
+
+						<div class="form-row">
+							<div class="form-group">
+								<label for="acres">Acres</label>
+								<input
+									id="acres"
+									type="number"
+									bind:value={fieldFormData.acres}
+									min="0"
+									step="0.1"
+								/>
+							</div>
+
+							<div class="form-group">
+								<label for="location">Location</label>
+								<input id="location" type="text" bind:value={fieldFormData.location} />
+							</div>
+						</div>
+
+						<div class="form-actions">
+							<button type="button" class="cancel-btn" onclick={closeFieldForm}>Cancel</button>
+							<button type="submit" class="save-btn">Save</button>
+						</div>
+					</form>
 				</div>
-
-				<form
-					class="modal-body"
-					onsubmit={(e) => {
-						e.preventDefault();
-						saveField();
-					}}
-				>
-					<div class="form-group">
-						<label for="field-name">Field Name *</label>
-						<input id="field-name" type="text" bind:value={fieldFormData.name} required />
-					</div>
-
-					<div class="form-group">
-						<label for="field-number">Field Number</label>
-						<input id="field-number" type="text" bind:value={fieldFormData.fieldNumber} />
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label for="acres">Acres</label>
-							<input
-								id="acres"
-								type="number"
-								bind:value={fieldFormData.acres}
-								min="0"
-								step="0.1"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="location">Location</label>
-							<input id="location" type="text" bind:value={fieldFormData.location} />
-						</div>
-					</div>
-
-					<div class="form-actions">
-						<button type="button" class="cancel-btn" onclick={closeFieldForm}>Cancel</button>
-						<button type="submit" class="save-btn">Save</button>
-					</div>
-				</form>
-			</div>
+			</article>
 		</div>
 	{/if}
 
 	{#if showReadingForm}
-		<div class="modal-overlay" onclick={closeReadingForm}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
-				<div class="modal-header">
-					<h2>{readingFormData.id ? 'Edit Reading' : 'Add Reading'}</h2>
-					<button class="close-btn" onclick={closeReadingForm}>×</button>
+		<div 
+			class="modal-overlay" 
+			onclick={handleReadingFormOverlayClick}
+			onkeydown={(e) => e.key === 'Escape' && closeReadingForm()}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="reading-form-title"
+			tabindex="-1"
+		>
+			<article class="modal">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h2 id="reading-form-title">{readingFormData.id ? 'Edit Reading' : 'Add Reading'}</h2>
+						<button class="close-btn" onclick={closeReadingForm} aria-label="Close dialog">×</button>
+					</div>
+
+					<form
+						class="modal-body"
+						onsubmit={(e) => {
+							e.preventDefault();
+							saveReading();
+						}}
+					>
+						<div class="form-group">
+							<label for="reading-date">Date *</label>
+							<input id="reading-date" type="date" bind:value={readingFormData.date} required />
+						</div>
+
+						<div class="form-row">
+							<div class="form-group">
+								<label for="moisture">Moisture Level (%) *</label>
+								<input
+									id="moisture"
+									type="number"
+									bind:value={readingFormData.moistureLevel}
+									min="0"
+									max="100"
+									step="0.1"
+									required
+								/>
+							</div>
+
+							<div class="form-group">
+								<label for="depth">Depth</label>
+								<select id="depth" bind:value={readingFormData.depth}>
+									<option value="0-6&quot;">0-6"</option>
+									<option value="6-12&quot;">6-12"</option>
+									<option value="12-18&quot;">12-18"</option>
+									<option value="18-24&quot;">18-24"</option>
+									<option value="24-36&quot;">24-36"</option>
+									<option value="36&quot;+">36"+</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label for="reading-notes">Notes</label>
+							<textarea id="reading-notes" bind:value={readingFormData.notes} rows="3"></textarea>
+						</div>
+
+						<div class="form-actions">
+							<button type="button" class="cancel-btn" onclick={closeReadingForm}>Cancel</button>
+							<button type="submit" class="save-btn">Save</button>
+						</div>
+					</form>
 				</div>
-
-				<form
-					class="modal-body"
-					onsubmit={(e) => {
-						e.preventDefault();
-						saveReading();
-					}}
-				>
-					<div class="form-group">
-						<label for="reading-date">Date *</label>
-						<input id="reading-date" type="date" bind:value={readingFormData.date} required />
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label for="moisture">Moisture Level (%) *</label>
-							<input
-								id="moisture"
-								type="number"
-								bind:value={readingFormData.moistureLevel}
-								min="0"
-								max="100"
-								step="0.1"
-								required
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="depth">Depth</label>
-							<select id="depth" bind:value={readingFormData.depth}>
-								<option value="0-6&quot;">0-6"</option>
-								<option value="6-12&quot;">6-12"</option>
-								<option value="12-18&quot;">12-18"</option>
-								<option value="18-24&quot;">18-24"</option>
-								<option value="24-36&quot;">24-36"</option>
-								<option value="36&quot;+">36"+</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="form-group">
-						<label for="reading-notes">Notes</label>
-						<textarea id="reading-notes" bind:value={readingFormData.notes} rows="3"></textarea>
-					</div>
-
-					<div class="form-actions">
-						<button type="button" class="cancel-btn" onclick={closeReadingForm}>Cancel</button>
-						<button type="submit" class="save-btn">Save</button>
-					</div>
-				</form>
-			</div>
+			</article>
 		</div>
 	{/if}
 </section>
