@@ -32,10 +32,10 @@
 		if (wetWeight > 0 && moistureContent > 0 && targetMoisture >= 0) {
 			// Calculate shrink factor
 			shrinkFactor = (100 - moistureContent) / (100 - targetMoisture);
-			
+
 			// Calculate dry weight
 			dryWeight = wetWeight * shrinkFactor;
-			
+
 			// Calculate moisture shrink (weight loss due to moisture)
 			moistureShrink = wetWeight - dryWeight;
 		} else {
@@ -64,16 +64,16 @@
 			calculatedWetBushels = wetWeight / 56;
 			calculatedDryWeight = wetWeight - (wetWeight * (moistureContent - 15) * manualShrinkFactor);
 			calculatedDryBushels = calculatedDryWeight / 56;
-			
+
 			// Store values for display
 			displayedLoadNumber = loadNumber;
 			displayedWetWeight = wetWeight;
 			displayedMoistureContent = moistureContent;
-			
+
 			showLoadResults = true;
 			showModal = true;
 		}
-		
+
 		// TODO: Save/process the load data here
 		// Reset the load-specific fields after entering
 		loadNumber = '';
@@ -88,7 +88,7 @@
 	// Google Sheet URL - replace with your actual Google Sheet URL
 	// You can use fieldNumber in the URL if needed
 	let googleSheetUrl = $derived(
-		fieldNumber 
+		fieldNumber
 			? `https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0&range=A1&q=${encodeURIComponent(fieldNumber)}`
 			: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0'
 	);
@@ -120,7 +120,7 @@
 		// Simulate bot response (you can replace this with actual API call)
 		setTimeout(() => {
 			let botResponse = 'I can help you with questions about your loads. ';
-			
+
 			if (userMessage.includes('load') || userMessage.includes('field')) {
 				botResponse = 'I can provide information about your loads. Currently, I can see you\'re working with Field Number: ' + (fieldNumber || 'not set') + '. Would you like to know more about a specific load?';
 			} else if (userMessage.includes('weight') || userMessage.includes('bushel')) {
@@ -274,9 +274,9 @@
 
 		<div class="button-row">
 			<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked}>Calculate and Enter Load</button>
-			<a 
-				href={googleSheetUrl} 
-				target="_blank" 
+			<a
+				href={googleSheetUrl}
+				target="_blank"
 				rel="noopener noreferrer"
 				class="view-previous-link"
 				class:disabled={!isTopSectionLocked}
@@ -288,18 +288,17 @@
 </section>
 
 {#if showModal}
-	<div 
-		class="modal-overlay" 
-		onclick={closeModal}
+	<div
+		class="modal-overlay"
+		onclick={(e) => { if (e.currentTarget === e.target) closeModal(); }}
 		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="modal-title"
 		tabindex="-1"
 	>
-		<article 
-			class="modal-content" 
-			onclick={(e) => e.stopPropagation()}
+		<article
+			class="modal-content"
 		>
 			<button class="modal-close" onclick={closeModal}>×</button>
 			<div class="load-results">
@@ -836,4 +835,3 @@
 	}
 
 </style>
-

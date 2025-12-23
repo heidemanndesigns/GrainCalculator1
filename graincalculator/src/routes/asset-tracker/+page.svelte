@@ -68,7 +68,7 @@
 		equipmentStore.updateHours(id, hours);
 	}
 
-	function isWarrantyExpiring(expiryDate: string): boolean {
+	function isWarrantyExpiring(expiryDate) {
 		if (!expiryDate) return false;
 		const expiry = new Date(expiryDate);
 		const today = new Date();
@@ -76,7 +76,7 @@
 		return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
 	}
 
-	function isWarrantyExpired(expiryDate: string): boolean {
+	function isWarrantyExpired(expiryDate) {
 		if (!expiryDate) return false;
 		return new Date(expiryDate) < new Date();
 	}
@@ -178,10 +178,21 @@
 	{/if}
 
 	{#if showForm}
-		<div class="modal-overlay" onclick={closeForm}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div
+			class="modal-overlay"
+			role="button"
+			tabindex="0"
+			aria-label="Close modal"
+			onclick={(e) => {
+				if (e.currentTarget === e.target) closeForm();
+			}}
+			onkeydown={(e) => {
+				if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') closeForm();
+			}}
+		>
+			<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
 				<div class="modal-header">
-					<h2>{editingId ? 'Edit Equipment' : 'Add Equipment'}</h2>
+					<h2 id="modal-title">{editingId ? 'Edit Equipment' : 'Add Equipment'}</h2>
 					<button class="close-btn" onclick={closeForm}>×</button>
 				</div>
 
@@ -570,4 +581,3 @@
 		}
 	}
 </style>
-

@@ -107,14 +107,14 @@
 		return field.readings[0]; // Already sorted by date
 	}
 
-	function getMoistureStatus(level: number): string {
+	function getMoistureStatus(level) {
 		if (level < 30) return 'Dry';
 		if (level < 50) return 'Moderate';
 		if (level < 70) return 'Adequate';
 		return 'Wet';
 	}
 
-	function getMoistureColor(level: number): string {
+	function getMoistureColor(level) {
 		if (level < 30) return '#dc2626'; // red
 		if (level < 50) return '#f59e0b'; // orange
 		if (level < 70) return '#10b981'; // green
@@ -765,4 +765,3 @@
 		}
 	}
 </style>
-
