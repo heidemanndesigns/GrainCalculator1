@@ -1,4 +1,30 @@
 <script>
+	import { authStore } from '$lib/stores/authStore.js';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { get } from 'svelte/store';
+	import { browser } from '$app/environment';
+
+	// Authentication check
+	let authState = $state(get(authStore));
+	
+	// Subscribe to auth store changes
+	$effect(() => {
+		const unsubscribe = authStore.subscribe((state) => {
+			authState = state;
+			
+			// Redirect to login if not authenticated (only after loading is complete)
+			if (browser && !state.loading && !state.user) {
+				goto(resolve('/login'));
+			}
+		});
+		return unsubscribe;
+	});
+
+	// Show loading state while checking authentication
+	let user = $derived(authState.user);
+	let loading = $derived(authState.loading);
+
 	let isTopSectionLocked = $state(false);
 	let loadNumber = $state('');
 	let date = $state('');
@@ -163,6 +189,11 @@
 	<meta name="description" content="Calculate dry grain weight and moisture shrink" />
 </svelte:head>
 
+{#if loading}
+	<div class="loading-container">
+		<div class="loading">Checking authentication...</div>
+	</div>
+{:else if user}
 <section class="calculator">
 	<h1>Dry Grain Calculator</h1>
 	<p class="description">
@@ -303,8 +334,9 @@
 		</div>
 	</div>
 </section>
+{/if}
 
-{#if showModal}
+{#if user && showModal}
 	<div
 		class="modal-overlay"
 		onclick={(e) => { if (e.currentTarget === e.target) closeModal(); }}
@@ -351,6 +383,7 @@
 	</div>
 {/if}
 
+{#if user}
 <!-- Chatbot -->
 <div class="chatbot-container">
 	{#if chatbotOpen}
@@ -387,8 +420,23 @@
 		</button>
 	{/if}
 </div>
+{/if}
 
 <style>
+	.loading-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		min-height: 60vh;
+		padding: 2rem;
+	}
+
+	.loading {
+		text-align: center;
+		color: var(--color-text);
+		font-size: 1.2rem;
+	}
+
 	.calculator {
 		max-width: 800px;
 		margin: 0 auto;
