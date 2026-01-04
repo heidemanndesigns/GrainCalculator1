@@ -1,5 +1,5 @@
 <script>
-	import { equipmentStore } from '$lib/stores/equipmentStore.js';
+	import { equipmentStore } from '$lib/stores/equipmentStore.svelte.js';
 
 	let showForm = $state(false);
 	let editingId = $state(null);

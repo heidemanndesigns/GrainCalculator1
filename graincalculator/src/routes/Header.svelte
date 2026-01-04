@@ -46,15 +46,18 @@
 			<li aria-current={page.url.pathname === '/' ? 'page' : undefined}>
 				<a href={resolve('/')}>Home</a>
 			</li>
+			<li aria-current={page.url.pathname.startsWith('/farms') ? 'page' : undefined}>
+				<a href={resolve('/farms')}>Farms</a>
+			</li>
 			<li aria-current={page.url.pathname.startsWith('/grain-calculator') ? 'page' : undefined}>
 				<a href={resolve('/grain-calculator')}>Grain Calculator</a>
 			</li>
-			<li aria-current={page.url.pathname.startsWith('/asset-tracker') ? 'page' : undefined}>
+			<!-- <li aria-current={page.url.pathname.startsWith('/asset-tracker') ? 'page' : undefined}>
 				<a href={resolve('/asset-tracker')}>Asset Tracker</a>
 			</li>
 			<li aria-current={page.url.pathname.startsWith('/soil-moisture') ? 'page' : undefined}>
 				<a href={resolve('/soil-moisture')}>Soil Moisture</a>
-			</li>
+			</li> -->
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
 			<path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z" />

@@ -21,7 +21,7 @@
 			<div class="tool-link">Use Calculator →</div>
 		</a>
 
-		<a href={resolve('/asset-tracker')} class="tool-card">
+		<!-- <a href={resolve('/asset-tracker')} class="tool-card">
 			<div class="tool-icon">🚜</div>
 			<h2>Asset Tracker</h2>
 			<p>Track your equipment assets with usage hours, warranty information, serial numbers, service dates, and more.</p>
@@ -33,7 +33,7 @@
 			<h2>Soil Moisture Tracker</h2>
 			<p>Monitor soil moisture levels across your fields. Track readings by depth and date to make informed irrigation decisions.</p>
 			<div class="tool-link">Monitor Moisture →</div>
-		</a>
+		</a> -->
 	</div>
 
 	<div class="features">

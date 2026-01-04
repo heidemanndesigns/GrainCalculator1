@@ -1,5 +1,5 @@
 <script>
-	import { soilMoistureStore } from '$lib/stores/soilMoistureStore.js';
+	import { soilMoistureStore } from '$lib/stores/soilMoistureStore.svelte.js';
 
 	let showFieldForm = $state(false);
 	let showReadingForm = $state(false);

@@ -4,7 +4,7 @@ This directory contains Svelte stores for reactive state management. Stores use 
 
 ## Current Stores
 
-### `equipmentStore.js`
+### `equipmentStore.svelte.js`
 Reactive store for equipment data. Provides:
 - `all` - Reactive array of all equipment
 - `getAll()` - Get all equipment
@@ -13,7 +13,7 @@ Reactive store for equipment data. Provides:
 - `remove(id)` - Delete equipment
 - `updateHours(id, hours)` - Update equipment hours
 
-### `soilMoistureStore.js`
+### `soilMoistureStore.svelte.js`
 Reactive store for soil moisture data. Provides:
 - `allFields` - Reactive array of all fields
 - `getAllFields()` - Get all fields
@@ -35,7 +35,7 @@ All stores follow this pattern:
 ## Usage in Components
 
 ```javascript
-import { equipmentStore } from '$lib/stores/equipmentStore.js';
+import { equipmentStore } from '$lib/stores/equipmentStore.svelte.js';
 
 // Access reactive data
 let equipment = $derived(equipmentStore.all);

@@ -1,5 +1,9 @@
 <script>
 	import { authStore } from '$lib/stores/authStore.js';
+	import { farmStore } from '$lib/stores/farmStore.svelte.js';
+	import { fieldStore } from '$lib/stores/fieldStore.svelte.js';
+	import { calculationStore } from '$lib/stores/calculationStore.svelte.js';
+	import CalculationHistory from '$lib/components/CalculationHistory.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { get } from 'svelte/store';
@@ -25,6 +29,97 @@
 	let user = $derived(authState.user);
 	let loading = $derived(authState.loading);
 
+	// Farm and field state
+	let farms = $state([]);
+	let fields = $state([]);
+	let selectedFarmId = $state('');
+	let selectedFieldId = $state('');
+	let farmsLoading = $state(false);
+	let fieldsLoading = $state(false);
+	let showFieldForm = $state(false);
+	let newFieldName = $state('');
+	let newFieldAcres = $state(0);
+	let calculationError = $state('');
+
+	// Load farms when user is available
+	$effect(() => {
+		if (user && !loading) {
+			loadFarms();
+		}
+	});
+
+	// Load fields when farm is selected
+	$effect(() => {
+		if (selectedFarmId && user) {
+			loadFields(selectedFarmId);
+		} else {
+			fields = [];
+			selectedFieldId = '';
+		}
+	});
+
+	// Update field number and acres when field is selected
+	$effect(() => {
+		if (selectedFieldId && fields.length > 0) {
+			const field = fields.find(f => f.id === selectedFieldId);
+			if (field) {
+				fieldNumber = field.name;
+				totalFieldAcres = field.acres;
+			}
+		}
+	});
+
+	async function loadFarms() {
+		if (!user) return;
+		farmsLoading = true;
+		try {
+			farms = await farmStore.getAll();
+		} catch (err) {
+			console.error('Error loading farms:', err);
+			calculationError = 'Failed to load farms';
+		} finally {
+			farmsLoading = false;
+		}
+	}
+
+	async function loadFields(farmId) {
+		if (!user || !farmId) return;
+		fieldsLoading = true;
+		try {
+			fields = await fieldStore.getAll(farmId);
+		} catch (err) {
+			console.error('Error loading fields:', err);
+			calculationError = 'Failed to load fields';
+		} finally {
+			fieldsLoading = false;
+		}
+	}
+
+	async function createField() {
+		if (!selectedFarmId || !newFieldName.trim() || newFieldAcres <= 0) {
+			calculationError = 'Please provide a field name and acres';
+			return;
+		}
+		fieldsLoading = true;
+		calculationError = '';
+		try {
+			const newField = await fieldStore.create(selectedFarmId, {
+				name: newFieldName.trim(),
+				acres: newFieldAcres
+			});
+			await loadFields(selectedFarmId);
+			selectedFieldId = newField.id;
+			newFieldName = '';
+			newFieldAcres = 0;
+			showFieldForm = false;
+		} catch (err) {
+			console.error('Error creating field:', err);
+			calculationError = err.message || 'Failed to create field';
+		} finally {
+			fieldsLoading = false;
+		}
+	}
+
 	let isTopSectionLocked = $state(false);
 	let loadNumber = $state('');
 	let date = $state('');
@@ -48,12 +143,14 @@
 	let displayedLoadNumber = $state('');
 	let displayedWetWeight = $state(0);
 	let displayedMoistureContent = $state(0);
+	let savingCalculation = $state(false);
 
 	// Validation: check if all required top section fields are filled
 	let isTopSectionValid = $derived(
 		date.trim() !== '' &&
 		operator.trim() !== '' &&
-		fieldNumber.trim() !== '' &&
+		selectedFarmId !== '' &&
+		selectedFieldId !== '' &&
 		totalFieldAcres > 0 &&
 		manualShrinkFactor > 0
 	);
@@ -94,11 +191,14 @@
 		operator = '';
 		totalFieldAcres = 0;
 		manualShrinkFactor = 0;
+		selectedFarmId = '';
+		selectedFieldId = '';
+		fields = [];
 	}
 
-	function enterLoad() {
+	async function enterLoad() {
 		// Calculate values
-		if (wetWeight > 0 && moistureContent > 0 && manualShrinkFactor > 0) {
+		if (wetWeight > 0 && moistureContent > 0 && manualShrinkFactor > 0 && selectedFarmId && selectedFieldId) {
 			calculatedWetBushels = wetWeight / 56;
 			calculatedDryWeight = wetWeight - (wetWeight * (moistureContent - 15) * manualShrinkFactor);
 			calculatedDryBushels = calculatedDryWeight / 56;
@@ -110,9 +210,31 @@
 
 			showLoadResults = true;
 			showModal = true;
+
+			// Save calculation to store
+			savingCalculation = true;
+			calculationError = '';
+			try {
+				await calculationStore.create(selectedFarmId, selectedFieldId, {
+					date: date || new Date().toISOString(),
+					operator: operator,
+					loadNumber: loadNumber,
+					wetWeight: wetWeight,
+					moistureContent: moistureContent,
+					targetMoisture: targetMoisture,
+					manualShrinkFactor: manualShrinkFactor,
+					calculatedWetBushels: calculatedWetBushels,
+					calculatedDryWeight: calculatedDryWeight,
+					calculatedDryBushels: calculatedDryBushels
+				});
+			} catch (err) {
+				console.error('Error saving calculation:', err);
+				calculationError = err.message || 'Failed to save calculation';
+			} finally {
+				savingCalculation = false;
+			}
 		}
 
-		// TODO: Save/process the load data here
 		// Reset the load-specific fields after entering
 		loadNumber = '';
 		wetWeight = 0;
@@ -123,13 +245,6 @@
 		showModal = false;
 	}
 
-	// Google Sheet URL - replace with your actual Google Sheet URL
-	// You can use fieldNumber in the URL if needed
-	let googleSheetUrl = $derived(
-		fieldNumber
-			? `https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0&range=A1&q=${encodeURIComponent(fieldNumber)}`
-			: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0'
-	);
 
 	// Chatbot functions
 	function toggleChatbot() {
@@ -200,8 +315,50 @@
 		Calculate the dry weight of grain after accounting for shrinkage. Enter the wet weight and current moisture content to determine the dry weight and dry bushels.
 	</p>
 
+	{#if calculationError}
+		<div class="error-message">{calculationError}</div>
+	{/if}
+
 	<div class="form-container">
 		<div class="top-section" class:locked={isTopSectionLocked}>
+			<div class="input-row">
+				<div class="input-group">
+					<label for="farm-select">Farm <span class="required">*</span></label>
+					<select
+						id="farm-select"
+						bind:value={selectedFarmId}
+						disabled={isTopSectionLocked || farmsLoading}
+						required
+					>
+						<option value="">Select a farm</option>
+						{#each farms as farm}
+							<option value={farm.id}>{farm.name}</option>
+						{/each}
+					</select>
+					{#if !farmsLoading && farms.length === 0}
+						<small><a href={resolve('/farms')}>Create a farm first</a></small>
+					{/if}
+				</div>
+
+				<div class="input-group">
+					<label for="field-select">Field <span class="required">*</span></label>
+					<select
+						id="field-select"
+						bind:value={selectedFieldId}
+						disabled={!selectedFarmId || isTopSectionLocked || fieldsLoading}
+						required
+					>
+						<option value="">Select a field</option>
+						{#each fields as field}
+							<option value={field.id}>{field.name} ({field.acres} acres)</option>
+						{/each}
+					</select>
+					{#if selectedFarmId && !fieldsLoading}
+						<small><button type="button" class="link-button" onclick={() => showFieldForm = true} disabled={isTopSectionLocked}>+ Create new field</button></small>
+					{/if}
+				</div>
+			</div>
+
 			<div class="input-row">
 				<div class="input-group">
 					<label for="date">Date <span class="required">*</span></label>
@@ -225,32 +382,30 @@
 						required
 					/>
 				</div>
-
-				<div class="input-group">
-					<label for="field-number">Field Number <span class="required">*</span></label>
-					<input
-						id="field-number"
-						type="text"
-						bind:value={fieldNumber}
-						placeholder="Enter field number"
-						disabled={isTopSectionLocked}
-						required
-					/>
-				</div>
 			</div>
 
 			<div class="input-row">
 				<div class="input-group">
-					<label for="total-field-acres">Total Field Acres <span class="required">*</span></label>
+					<label for="field-number">Field Number</label>
+					<input
+						id="field-number"
+						type="text"
+						bind:value={fieldNumber}
+						placeholder="Auto-filled from selected field"
+						disabled={true}
+					/>
+				</div>
+
+				<div class="input-group">
+					<label for="total-field-acres">Total Field Acres</label>
 					<input
 						id="total-field-acres"
 						type="number"
 						step="0.01"
 						min="0"
 						bind:value={totalFieldAcres}
-						placeholder="0"
-						disabled={isTopSectionLocked}
-						required
+						placeholder="Auto-filled from selected field"
+						disabled={true}
 					/>
 				</div>
 
@@ -321,19 +476,82 @@
 		</div>
 
 		<div class="button-row">
-			<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked}>Calculate and Enter Load</button>
-			<a
-				href={googleSheetUrl}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="view-previous-link"
-				class:disabled={!isTopSectionLocked}
-			>
-				View Previous Load Results
-			</a>
+			<button class="reset-btn" onclick={enterLoad} disabled={!isTopSectionLocked || savingCalculation}>
+				{savingCalculation ? 'Saving...' : 'Calculate and Enter Load'}
+			</button>
 		</div>
 	</div>
+
+	{#if isTopSectionLocked && selectedFarmId && selectedFieldId}
+		<CalculationHistory farmId={selectedFarmId} fieldId={selectedFieldId} />
+	{/if}
 </section>
+{/if}
+
+{#if user && showFieldForm}
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close modal"
+		onclick={(e) => {
+			if (e.currentTarget === e.target) showFieldForm = false;
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') showFieldForm = false;
+		}}
+	>
+		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="field-modal-title">
+			<div class="modal-header">
+				<h2 id="field-modal-title">Create New Field</h2>
+				<button class="close-btn" onclick={() => showFieldForm = false}>×</button>
+			</div>
+			<div class="modal-body">
+				{#if calculationError}
+					<div class="error-message">{calculationError}</div>
+				{/if}
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						createField();
+					}}
+				>
+					<div class="form-group">
+						<label for="new-field-name">Field Name *</label>
+						<input
+							id="new-field-name"
+							type="text"
+							bind:value={newFieldName}
+							required
+							placeholder="Enter field name"
+							disabled={fieldsLoading}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="new-field-acres">Acres *</label>
+						<input
+							id="new-field-acres"
+							type="number"
+							step="0.01"
+							min="0"
+							bind:value={newFieldAcres}
+							required
+							placeholder="0"
+							disabled={fieldsLoading}
+						/>
+					</div>
+					<div class="form-actions">
+						<button type="button" class="btn btn-secondary" onclick={() => showFieldForm = false} disabled={fieldsLoading}>
+							Cancel
+						</button>
+						<button type="submit" class="btn btn-primary" disabled={fieldsLoading || !newFieldName.trim() || newFieldAcres <= 0}>
+							{fieldsLoading ? 'Creating...' : 'Create Field'}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
 {/if}
 
 {#if user && showModal}
@@ -619,33 +837,32 @@
 		flex: 1;
 	}
 
-	.view-previous-link {
-		flex: 1;
-		padding: 0.75rem;
-		background: var(--color-theme-2);
-		color: white;
-		border: none;
+	.error-message {
+		background: #fee;
+		color: #c33;
+		padding: 1rem;
 		border-radius: 4px;
-		font-size: 1rem;
-		font-weight: 600;
-		text-decoration: none;
-		text-align: center;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: background 0.2s;
+		margin-bottom: 1rem;
+		border: 1px solid #fcc;
+	}
+
+	.link-button {
+		background: none;
+		border: none;
+		color: var(--color-theme-2);
 		cursor: pointer;
+		text-decoration: underline;
+		padding: 0;
+		font-size: inherit;
 	}
 
-	.view-previous-link:hover:not(.disabled) {
-		background: #1a5a8a;
+	.link-button:hover:not(:disabled) {
+		color: #1a5a8a;
 	}
 
-	.view-previous-link.disabled {
-		background: #cccccc;
-		cursor: not-allowed;
+	.link-button:disabled {
 		opacity: 0.6;
-		pointer-events: none;
+		cursor: not-allowed;
 	}
 
 	.modal-overlay {
@@ -659,6 +876,109 @@
 		justify-content: center;
 		align-items: center;
 		z-index: 1000;
+	}
+
+	.modal {
+		background: white;
+		border-radius: 8px;
+		padding: 0;
+		max-width: 500px;
+		width: 90%;
+		max-height: 90vh;
+		overflow-y: auto;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.5rem;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		color: var(--color-theme-2);
+	}
+
+	.modal-body {
+		padding: 1.5rem;
+	}
+
+	.form-group {
+		margin-bottom: 1.5rem;
+	}
+
+	.form-group label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.form-group input,
+	.form-group select {
+		width: 100%;
+		padding: 0.75rem;
+		border: 2px solid rgba(0, 0, 0, 0.1);
+		border-radius: 4px;
+		font-size: 1rem;
+		box-sizing: border-box;
+		transition: border-color 0.2s;
+	}
+
+	.form-group input:focus,
+	.form-group select:focus {
+		outline: none;
+		border-color: var(--color-theme-2);
+	}
+
+	.form-group input:disabled,
+	.form-group select:disabled {
+		background-color: #e0e0e0;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 1rem;
+		justify-content: flex-end;
+		margin-top: 2rem;
+	}
+
+	.btn {
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.btn-primary {
+		background: var(--color-theme-2);
+		color: white;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: #1a5a8a;
+	}
+
+	.btn-secondary {
+		background: #e0e0e0;
+		color: var(--color-text);
+	}
+
+	.btn-secondary:hover:not(:disabled) {
+		background: #d0d0d0;
+	}
+
+	.btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.modal-content {
