@@ -10,12 +10,12 @@
 
 	// Authentication check
 	let authState = $state(get(authStore));
-	
+
 	// Subscribe to auth store changes
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((state) => {
 			authState = state;
-			
+
 			// Redirect to login if not authenticated
 			if (browser && !state.loading && !state.user) {
 				goto(resolve('/login'));
@@ -231,7 +231,7 @@
 							{isOwner(farm) ? 'Owner' : 'Member'}
 						</div>
 					</div>
-					
+
 					<div class="farm-details">
 						<div class="detail-item">
 							<span class="label">Members:</span>
@@ -257,7 +257,7 @@
 						<div class="members-list">
 							<h3>Members</h3>
 							<ul>
-								{#each farm.memberIds as memberId}
+								{#each farm.memberIds as memberId (memberId)}
 									<li>
 										{memberId === farm.ownerId ? '👑 ' : ''}
 										{memberId === user.uid ? 'You' : memberId.substring(0, 8) + '...'}
@@ -288,7 +288,8 @@
 			if (e.currentTarget === e.target) closeFarmForm();
 		}}
 		onkeydown={(e) => {
-			if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') closeFarmForm();
+			// Only close on Escape and only when the overlay itself has focus
+			if (e.currentTarget === e.target && e.key === 'Escape') closeFarmForm();
 		}}
 	>
 		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -301,8 +302,12 @@
 				{#if error}
 					<div class="error-message">{error}</div>
 				{/if}
+				{#if farmsLoading}
+					<div class="saving-message">{editingFarmId ? 'Updating farm...' : 'Creating farm...'}</div>
+				{/if}
 
 				<form
+					aria-busy={farmsLoading}
 					onsubmit={(e) => {
 						e.preventDefault();
 						saveFarm();
@@ -317,6 +322,7 @@
 							required
 							placeholder="Enter farm name"
 							disabled={farmsLoading}
+							onkeydown={(e) => e.stopPropagation()}
 						/>
 					</div>
 
@@ -344,7 +350,8 @@
 			if (e.currentTarget === e.target) closeMemberForm();
 		}}
 		onkeydown={(e) => {
-			if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') closeMemberForm();
+			// Only close on Escape and only when the overlay itself has focus
+			if (e.currentTarget === e.target && e.key === 'Escape') closeMemberForm();
 		}}
 	>
 		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
@@ -359,6 +366,7 @@
 				{/if}
 
 				<form
+					aria-busy={farmsLoading}
 					onsubmit={(e) => {
 						e.preventDefault();
 						addMember();
@@ -373,6 +381,7 @@
 							required
 							placeholder="Enter user email"
 							disabled={farmsLoading}
+							onkeydown={(e) => e.stopPropagation()}
 						/>
 						<small>User must be registered in the app</small>
 					</div>
@@ -404,10 +413,11 @@
 		text-align: center;
 		color: var(--color-text);
 		font-size: 1.2rem;
+		animation: pulse 1.5s ease-in-out infinite;
 	}
 
 	.farms {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 2rem;
 	}
@@ -416,12 +426,16 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: 1rem;
+		flex-wrap: wrap;
 		margin-bottom: 2rem;
 	}
 
 	h1 {
 		color: var(--color-theme-2);
 		margin: 0;
+		font-weight: 800;
+		letter-spacing: -0.01em;
 	}
 
 	.add-btn {
@@ -429,15 +443,18 @@
 		color: white;
 		border: none;
 		padding: 0.75rem 1.5rem;
-		border-radius: 4px;
+		border-radius: 9999px;
 		font-size: 1rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition: background 0.2s;
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+		transition: background 0.2s, transform 0.15s ease, box-shadow 0.2s ease;
 	}
 
 	.add-btn:hover:not(:disabled) {
 		background: #1a5a8a;
+		transform: translateY(-1px);
+		box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
 	}
 
 	.add-btn:disabled {
@@ -446,12 +463,22 @@
 	}
 
 	.error-message {
-		background: #fee;
-		color: #c33;
+		background: #fff5f5;
+		color: #9b1c1c;
 		padding: 1rem;
-		border-radius: 4px;
+		border-radius: 8px;
 		margin-bottom: 1rem;
-		border: 1px solid #fcc;
+		border: 1px solid #fed7d7;
+	}
+
+	.saving-message {
+		background: #eef6ff;
+		color: #0b61a4;
+		padding: 0.75rem 1rem;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		border: 1px solid #cfe4ff;
+		font-weight: 600;
 	}
 
 	.empty-state {
@@ -463,15 +490,23 @@
 
 	.farms-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1.5rem;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 1.75rem;
 	}
 
 	.farm-card {
-		background: rgba(255, 255, 255, 0.7);
-		border-radius: 8px;
-		padding: 1.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		background: #ffffff;
+		border-radius: 14px;
+		padding: 1.25rem 1.25rem 1rem 1.25rem;
+		border: 1px solid rgba(0, 0, 0, 0.06);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+		transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+	}
+
+	.farm-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+		border-color: rgba(0, 0, 0, 0.12);
 	}
 
 	.farm-header {
@@ -484,21 +519,25 @@
 	.farm-header h2 {
 		margin: 0;
 		color: var(--color-theme-2);
-		font-size: 1.5rem;
+		font-size: 1.35rem;
+		font-weight: 700;
+		letter-spacing: -0.01em;
 	}
 
 	.farm-badge {
-		background: #e0e0e0;
-		color: var(--color-text);
-		padding: 0.25rem 0.75rem;
-		border-radius: 12px;
-		font-size: 0.875rem;
-		font-weight: 600;
+		background: #eef2ff;
+		color: #4338ca;
+		padding: 0.25rem 0.6rem;
+		border-radius: 9999px;
+		font-size: 0.8rem;
+		font-weight: 700;
+		border: 1px solid #e0e7ff;
 	}
 
 	.farm-badge.owner {
-		background: #ffd700;
-		color: #333;
+		background: #ecfdf5;
+		color: #047857;
+		border-color: #a7f3d0;
 	}
 
 	.farm-details {
@@ -514,11 +553,12 @@
 	.detail-item .label {
 		font-weight: 600;
 		color: var(--color-text);
+		opacity: 0.8;
 	}
 
 	.detail-item .value {
 		color: var(--color-theme-2);
-		font-weight: 600;
+		font-weight: 700;
 	}
 
 	.farm-actions {
@@ -529,40 +569,47 @@
 	}
 
 	.btn {
-		padding: 0.5rem 1rem;
+		padding: 0.55rem 0.95rem;
 		border: none;
-		border-radius: 4px;
-		font-size: 0.875rem;
-		font-weight: 600;
+		border-radius: 10px;
+		font-size: 0.9rem;
+		font-weight: 700;
 		cursor: pointer;
-		transition: background 0.2s;
+		transition: background 0.2s, transform 0.15s ease, box-shadow 0.2s ease, color 0.2s ease;
 	}
 
 	.btn-primary {
 		background: var(--color-theme-2);
 		color: white;
+		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 	}
 
 	.btn-primary:hover:not(:disabled) {
 		background: #1a5a8a;
+		transform: translateY(-1px);
+		box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
 	}
 
 	.btn-secondary {
-		background: #e0e0e0;
-		color: var(--color-text);
+		background: #f3f4f6;
+		color: #111827;
+		border: 1px solid #e5e7eb;
 	}
 
 	.btn-secondary:hover:not(:disabled) {
-		background: #d0d0d0;
+		background: #e5e7eb;
 	}
 
 	.btn-danger {
 		background: #d32f2f;
 		color: white;
+		box-shadow: 0 6px 18px rgba(211, 47, 47, 0.24);
 	}
 
 	.btn-danger:hover:not(:disabled) {
 		background: #b71c1c;
+		transform: translateY(-1px);
+		box-shadow: 0 10px 22px rgba(183, 28, 28, 0.28);
 	}
 
 	.btn:disabled {
@@ -580,6 +627,7 @@
 		font-size: 1rem;
 		margin: 0 0 0.5rem 0;
 		color: var(--color-text);
+		opacity: 0.95;
 	}
 
 	.members-list ul {
@@ -598,18 +646,19 @@
 
 	.btn-remove {
 		background: transparent;
-		color: #d32f2f;
-		border: 1px solid #d32f2f;
+		color: #b91c1c;
+		border: 1px solid #fecaca;
 		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
+		border-radius: 8px;
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.btn-remove:hover:not(:disabled) {
-		background: #d32f2f;
-		color: white;
+		background: #fee2e2;
+		color: #7f1d1d;
+		border-color: #fca5a5;
 	}
 
 	.btn-remove:disabled {
@@ -623,22 +672,26 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: rgba(0, 0, 0, 0.5);
+		background: rgba(2, 6, 23, 0.55);
+		backdrop-filter: saturate(120%) blur(6px);
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		z-index: 1000;
+		padding: 1rem;
 	}
 
 	.modal {
 		background: white;
-		border-radius: 8px;
+		border-radius: 14px;
 		padding: 0;
-		max-width: 500px;
-		width: 90%;
+		max-width: 560px;
+		width: 100%;
 		max-height: 90vh;
 		overflow-y: auto;
-		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+		border: 1px solid rgba(0, 0, 0, 0.06);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+		animation: scaleIn 160ms ease-out;
 	}
 
 	.modal-header {
@@ -652,6 +705,7 @@
 	.modal-header h2 {
 		margin: 0;
 		color: var(--color-theme-2);
+		font-weight: 800;
 	}
 
 	.close-btn {
@@ -668,7 +722,7 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		transition: background 0.2s;
+		transition: background 0.2s, transform 0.15s ease;
 	}
 
 	.close-btn:hover {
@@ -680,7 +734,7 @@
 	}
 
 	.form-group {
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.25rem;
 	}
 
 	.form-group label {
@@ -692,21 +746,23 @@
 
 	.form-group input {
 		width: 100%;
-		padding: 0.75rem;
-		border: 2px solid rgba(0, 0, 0, 0.1);
-		border-radius: 4px;
+		padding: 0.8rem 0.9rem;
+		border: 1px solid rgba(0, 0, 0, 0.12);
+		border-radius: 10px;
 		font-size: 1rem;
 		box-sizing: border-box;
-		transition: border-color 0.2s;
+		background: #f8fafc;
+		transition: border-color 0.2s, box-shadow 0.2s;
 	}
 
 	.form-group input:focus {
 		outline: none;
 		border-color: var(--color-theme-2);
+		box-shadow: 0 0 0 4px rgba(26, 106, 156, 0.15);
 	}
 
 	.form-group input:disabled {
-		background-color: #e0e0e0;
+		background-color: #f3f4f6;
 		cursor: not-allowed;
 		opacity: 0.6;
 	}
@@ -725,6 +781,31 @@
 		margin-top: 2rem;
 	}
 
+	/* Accessibility and motion preferences */
+	:focus-visible {
+		outline: 2px solid var(--color-theme-2);
+		outline-offset: 2px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			animation-duration: 0.001ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.001ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 0.6; }
+		50% { opacity: 1; }
+	}
+
+	@keyframes scaleIn {
+		from { transform: scale(0.98); opacity: 0; }
+		to { transform: scale(1); opacity: 1; }
+	}
+
 	@media (max-width: 640px) {
 		.header {
 			flex-direction: column;
@@ -734,6 +815,7 @@
 
 		.farms-grid {
 			grid-template-columns: 1fr;
+			gap: 1rem;
 		}
 
 		.farm-actions {
@@ -743,6 +825,13 @@
 		.farm-actions .btn {
 			width: 100%;
 		}
+
+		.farms {
+			padding: 1.25rem;
+		}
+
+		.modal {
+			max-width: 100%;
+		}
 	}
 </style>
-
