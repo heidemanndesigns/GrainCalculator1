@@ -14,7 +14,7 @@ import {
 	Timestamp
 } from 'firebase/firestore';
 
-const COLLECTION_NAME = 'farms';
+const COLLECTION_NAME = 'Farms';
 
 /**
  * Farm service for managing farm data
@@ -33,23 +33,48 @@ export class FarmService {
 		}
 
 		try {
+			console.log('[FarmService.getAll] userId', userId);
 			const farmsRef = collection(db, COLLECTION_NAME);
-			// Query farms where user is owner or member
-			const q = query(
-				farmsRef,
-				where('memberIds', 'array-contains', userId)
-			);
-			const snapshot = await getDocs(q);
-			const farms = snapshot.docs.map((doc) => {
-				const data = doc.data();
-				// Convert Firestore Timestamps to dates
-				return {
-					id: doc.id,
-					...data,
-					createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-					updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
-				};
-			});
+			// Primary: farms where the user is a member
+			let farms = [];
+			try {
+				const qMembers = query(farmsRef, where('memberIds', 'array-contains', userId));
+				const snapshotMembers = await getDocs(qMembers);
+				farms = snapshotMembers.docs.map((doc) => {
+					const data = doc.data();
+					return {
+						id: doc.id,
+						...data,
+						createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+						updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+					};
+				});
+			} catch (e) {
+				console.warn('[FarmService.getAll] memberIds query failed, will try owner fallback', e);
+			}
+			// Fallback: farms owned by the user (merge uniques)
+			try {
+				const qOwner = query(farmsRef, where('ownerId', '==', userId));
+				const snapshotOwner = await getDocs(qOwner);
+				const ownerFarms = snapshotOwner.docs.map((doc) => {
+					const data = doc.data();
+					return {
+						id: doc.id,
+						...data,
+						createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+						updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+					};
+				});
+				const seen = new Set(farms.map((f) => f.id));
+				for (const f of ownerFarms) {
+					if (!seen.has(f.id)) {
+						farms.push(f);
+					}
+				}
+			} catch (e) {
+				console.warn('[FarmService.getAll] ownerId fallback query failed', e);
+			}
+			console.log('[FarmService.getAll] result count', farms.length);
 			return farms;
 		} catch (error) {
 			console.error('Error fetching farms:', error);
@@ -102,7 +127,7 @@ export class FarmService {
 		try {
 			const farmRef = doc(db, COLLECTION_NAME, id);
 			const farmDoc = await getDoc(farmRef);
-			
+
 			if (farmDoc.exists()) {
 				const data = farmDoc.data();
 				// Verify the user is a member of the farm
@@ -138,16 +163,20 @@ export class FarmService {
 		}
 
 		try {
+			console.log('[FarmService.create] start', { userId, farmData });
 			const farmRef = doc(collection(db, COLLECTION_NAME));
 			const farmDataToSave = {
 				name: farmData.name.trim(),
 				ownerId: userId,
 				memberIds: [userId], // Owner is automatically a member
+				fieldIds: [],
 				createdAt: Timestamp.now(),
 				updatedAt: Timestamp.now()
 			};
 
+			console.log('[FarmService.create] writing', { path: `${COLLECTION_NAME}/${farmRef.id}`, payload: { ...farmDataToSave, createdAt: '[Timestamp]', updatedAt: '[Timestamp]' } });
 			await setDoc(farmRef, farmDataToSave);
+			console.log('[FarmService.create] write success', { id: farmRef.id });
 			return {
 				id: farmRef.id,
 				...farmDataToSave,
@@ -155,7 +184,7 @@ export class FarmService {
 				updatedAt: farmDataToSave.updatedAt.toDate().toISOString()
 			};
 		} catch (error) {
-			console.error('Error creating farm:', error);
+			console.error('[FarmService.create] error', error);
 			throw error;
 		}
 	}
@@ -307,4 +336,3 @@ export class FarmService {
 		}
 	}
 }
-

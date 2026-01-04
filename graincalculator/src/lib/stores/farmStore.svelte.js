@@ -1,6 +1,8 @@
 import { FarmService } from '../services/farmService.js';
 import { authStore } from './authStore.js';
 import { get } from 'svelte/store';
+import { db } from '$lib/firebase/firebase.client';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 /**
  * Farm store - reactive state management for farms
@@ -12,6 +14,61 @@ export function createFarmStore() {
 	let initialized = $state(false);
 	let loading = $state(false);
 	let currentUserId = $state(null);
+	// Realtime listeners
+	let memberUnsub = null;
+	let ownerUnsub = null;
+	let memberInitDone = false;
+	let ownerInitDone = false;
+	/** @type {Map<string, any>} */
+	let memberFarmsMap = new Map();
+	/** @type {Map<string, any>} */
+	let ownerFarmsMap = new Map();
+
+	function resetRealtime() {
+		if (memberUnsub) {
+			try { memberUnsub(); } catch {}
+			memberUnsub = null;
+		}
+		if (ownerUnsub) {
+			try { ownerUnsub(); } catch {}
+			ownerUnsub = null;
+		}
+		memberFarmsMap = new Map();
+		ownerFarmsMap = new Map();
+		memberInitDone = false;
+		ownerInitDone = false;
+	}
+
+	function normalizeDoc(doc) {
+		const data = doc.data();
+		return {
+			id: doc.id,
+			...data,
+			createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+			updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+		};
+	}
+
+	function sortFarms(list) {
+		return [...list].sort((a, b) => {
+			const an = (a?.name ?? '').toString();
+			const bn = (b?.name ?? '').toString();
+			const byName = an.localeCompare(bn, undefined, { numeric: true, sensitivity: 'base' });
+			if (byName !== 0) return byName;
+			// fallback: by createdAt then id for stability
+			const ac = (a?.createdAt ?? '').toString();
+			const bc = (b?.createdAt ?? '').toString();
+			const byCreated = ac.localeCompare(bc);
+			if (byCreated !== 0) return byCreated;
+			return (a?.id ?? '').localeCompare(b?.id ?? '');
+		});
+	}
+
+	function publishMerged() {
+		// Merge owner + member maps (owner wins for duplicates but they should be identical)
+		const merged = new Map([...memberFarmsMap, ...ownerFarmsMap]);
+		farms = sortFarms(Array.from(merged.values()));
+	}
 
 	/**
 	 * Initialize store by loading data from service
@@ -19,6 +76,7 @@ export function createFarmStore() {
 	 */
 	async function init(userId) {
 		if (!userId) {
+			resetRealtime();
 			farms = [];
 			initialized = false;
 			currentUserId = null;
@@ -26,17 +84,73 @@ export function createFarmStore() {
 		}
 
 		if (initialized && currentUserId === userId) return;
-		
+
 		loading = true;
 		try {
-			farms = await FarmService.getAll(userId);
-			initialized = true;
+			// Set up realtime listeners (member and owner)
+			resetRealtime();
 			currentUserId = userId;
+
+			const farmsRef = collection(db, 'Farms');
+
+			// Listen to farms where the user is a member
+			try {
+				const qMembers = query(farmsRef, where('memberIds', 'array-contains', userId));
+				memberUnsub = onSnapshot(qMembers, (snapshot) => {
+					memberFarmsMap.clear();
+					for (const d of snapshot.docs) {
+						memberFarmsMap.set(d.id, normalizeDoc(d));
+					}
+					memberInitDone = true;
+					publishMerged();
+					if (memberInitDone && ownerInitDone) {
+						initialized = true;
+						loading = false;
+					}
+				}, (err) => {
+					console.warn('[farmStore] memberIds listener error', err);
+					memberInitDone = true;
+					if (memberInitDone && ownerInitDone) {
+						initialized = true;
+						loading = false;
+					}
+				});
+			} catch (e) {
+				console.warn('[farmStore] failed to attach member listener', e);
+				memberInitDone = true;
+			}
+
+			// Listen to farms where the user is the owner
+			try {
+				const qOwner = query(farmsRef, where('ownerId', '==', userId));
+				ownerUnsub = onSnapshot(qOwner, (snapshot) => {
+					ownerFarmsMap.clear();
+					for (const d of snapshot.docs) {
+						ownerFarmsMap.set(d.id, normalizeDoc(d));
+					}
+					ownerInitDone = true;
+					publishMerged();
+					if (memberInitDone && ownerInitDone) {
+						initialized = true;
+						loading = false;
+					}
+				}, (err) => {
+					console.warn('[farmStore] ownerId listener error', err);
+					ownerInitDone = true;
+					if (memberInitDone && ownerInitDone) {
+						initialized = true;
+						loading = false;
+					}
+				});
+			} catch (e) {
+				console.warn('[farmStore] failed to attach owner listener', e);
+				ownerInitDone = true;
+			}
 		} catch (error) {
 			console.error('Error initializing farm store:', error);
 			farms = [];
 		} finally {
-			loading = false;
+			// loading is turned off when both listeners deliver first result
 		}
 	}
 
@@ -54,10 +168,13 @@ export function createFarmStore() {
 	async function getAll() {
 		const userId = getUserId();
 		if (!userId) {
+			console.log('[farmStore.getAll] no userId');
 			farms = [];
 			return farms;
 		}
+		console.log('[farmStore.getAll] init for user', userId);
 		await init(userId);
+		console.log('[farmStore.getAll] returning farms', { count: farms?.length });
 		return farms;
 	}
 
@@ -79,11 +196,11 @@ export function createFarmStore() {
 	async function getById(id) {
 		const userId = getUserId();
 		if (!userId || !id) return null;
-		
+
 		await init(userId);
 		const farm = farms.find((farm) => farm.id === id);
 		if (farm) return farm;
-		
+
 		// If not in local state, fetch from Firestore
 		return await FarmService.getById(userId, id);
 	}
@@ -99,9 +216,10 @@ export function createFarmStore() {
 
 		loading = true;
 		try {
+			console.log('[farmStore.create] start', { userId, farmData });
 			const saved = await FarmService.create(userId, farmData);
-			// Refresh farms list
-			await init(userId);
+			// Realtime listeners will update 'farms' automatically
+			console.log('[farmStore.create] saved and refreshed', { savedId: saved?.id });
 			return saved;
 		} catch (error) {
 			console.error('Error creating farm:', error);
@@ -122,9 +240,10 @@ export function createFarmStore() {
 
 		loading = true;
 		try {
+			console.log('[farmStore.update] start', { userId, id, farmData });
 			const updated = await FarmService.update(userId, id, farmData);
-			// Refresh farms list
-			await init(userId);
+			// Realtime listeners will update 'farms' automatically
+			console.log('[farmStore.update] updated and refreshed', { id });
 			return updated;
 		} catch (error) {
 			console.error('Error updating farm:', error);
@@ -146,8 +265,7 @@ export function createFarmStore() {
 		loading = true;
 		try {
 			await FarmService.delete(userId, id);
-			// Refresh farms list
-			await init(userId);
+			// Realtime listeners will update 'farms' automatically
 		} catch (error) {
 			console.error('Error deleting farm:', error);
 			throw error;
@@ -168,8 +286,7 @@ export function createFarmStore() {
 		loading = true;
 		try {
 			const updated = await FarmService.addMember(userId, farmId, memberUserId);
-			// Refresh farms list
-			await init(userId);
+			// Realtime listeners will update 'farms' automatically
 			return updated;
 		} catch (error) {
 			console.error('Error adding member to farm:', error);
@@ -191,8 +308,7 @@ export function createFarmStore() {
 		loading = true;
 		try {
 			const updated = await FarmService.removeMember(userId, farmId, memberUserId);
-			// Refresh farms list
-			await init(userId);
+			// Realtime listeners will update 'farms' automatically
 			return updated;
 		} catch (error) {
 			console.error('Error removing member from farm:', error);
@@ -236,4 +352,3 @@ export function createFarmStore() {
 
 // Export singleton instance
 export const farmStore = createFarmStore();
-

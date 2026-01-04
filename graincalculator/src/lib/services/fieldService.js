@@ -8,10 +8,13 @@ import {
 	deleteDoc,
 	query,
 	where,
+	updateDoc,
+	arrayUnion,
+	arrayRemove,
 	Timestamp
 } from 'firebase/firestore';
 
-const COLLECTION_NAME = 'fields';
+const COLLECTION_NAME = 'Fields';
 
 /**
  * Field service for managing field/plot data per farm
@@ -80,7 +83,7 @@ export class FieldService {
 
 			const fieldRef = doc(db, COLLECTION_NAME, id);
 			const fieldDoc = await getDoc(fieldRef);
-			
+
 			if (fieldDoc.exists()) {
 				const data = fieldDoc.data();
 				// Verify the field belongs to the farm
@@ -133,11 +136,22 @@ export class FieldService {
 				farmId,
 				name: fieldData.name.trim(),
 				acres: fieldData.acres,
+				calculations: [], // lightweight list of recent calculation summaries
 				createdAt: Timestamp.now(),
 				updatedAt: Timestamp.now()
 			};
 
 			await setDoc(fieldRef, fieldDataToSave);
+			// add field id to farm.fieldIds
+			try {
+				const farmRef = doc(db, 'Farms', farmId);
+				await updateDoc(farmRef, {
+					fieldIds: arrayUnion(fieldRef.id),
+					updatedAt: Timestamp.now()
+				});
+			} catch (e) {
+				console.warn('Warning: failed to update farm fieldIds after field create', e);
+			}
 			return {
 				id: fieldRef.id,
 				...fieldDataToSave,
@@ -223,6 +237,16 @@ export class FieldService {
 
 			const fieldRef = doc(db, COLLECTION_NAME, id);
 			await deleteDoc(fieldRef);
+			// remove field id from farm.fieldIds
+			try {
+				const farmRef = doc(db, 'Farms', farmId);
+				await updateDoc(farmRef, {
+					fieldIds: arrayRemove(id),
+					updatedAt: Timestamp.now()
+				});
+			} catch (e) {
+				console.warn('Warning: failed to update farm fieldIds after field delete', e);
+			}
 			return true;
 		} catch (error) {
 			console.error('Error deleting field:', error);
@@ -230,4 +254,3 @@ export class FieldService {
 		}
 	}
 }
-

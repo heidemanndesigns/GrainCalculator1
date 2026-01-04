@@ -3,6 +3,7 @@
 	import { farmStore } from '$lib/stores/farmStore.svelte.js';
 	import { fieldStore } from '$lib/stores/fieldStore.svelte.js';
 	import { calculationStore } from '$lib/stores/calculationStore.svelte.js';
+	import { userStore } from '$lib/stores/userStore.svelte.js';
 	import CalculationHistory from '$lib/components/CalculationHistory.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -11,12 +12,12 @@
 
 	// Authentication check
 	let authState = $state(get(authStore));
-	
+
 	// Subscribe to auth store changes
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((state) => {
 			authState = state;
-			
+
 			// Redirect to login if not authenticated (only after loading is complete)
 			if (browser && !state.loading && !state.user) {
 				goto(resolve('/login'));
@@ -174,6 +175,21 @@
 			shrinkFactor = 0;
 			dryWeight = 0;
 			moistureShrink = 0;
+		}
+	});
+
+	// Autofill operator from user profile (first + last), fallback to displayName/email handle
+	$effect(async () => {
+		if (user && !loading && !isTopSectionLocked && operator.trim() === '') {
+			try {
+				const profile = await userStore.load(user.uid);
+				const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim();
+				const fallback = user.displayName || (user.email ? user.email.split('@')[0] : '');
+				operator = (fullName || fallback || '').trim();
+			} catch {
+				const fallback = user.displayName || (user.email ? user.email.split('@')[0] : '');
+				operator = (fallback || '').trim();
+			}
 		}
 	});
 

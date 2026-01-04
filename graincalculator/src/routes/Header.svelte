@@ -9,7 +9,7 @@
 	import { get } from 'svelte/store';
 
 	let authState = $state(get(authStore));
-	
+
 	// Subscribe to auth store changes
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((state) => {
@@ -68,18 +68,21 @@
 		{#if !loading}
 			{#if user}
 				<div class="user-menu">
-					{#if user.photoURL}
-						<img src={user.photoURL} alt={user.displayName || 'User'} class="user-avatar" />
-					{:else}
-						<div class="user-avatar-placeholder">
-							{user.displayName?.[0] || user.email?.[0] || 'U'}
-						</div>
-					{/if}
+					<a href={resolve('/profile')} class="profile-link" aria-label="Open profile">
+						{#if user.photoURL}
+							<img src={user.photoURL} alt={user.displayName || 'User'} class="user-avatar" />
+						{:else}
+							<div class="user-avatar-placeholder">
+								{user.displayName?.[0] || user.email?.[0] || 'U'}
+							</div>
+						{/if}
+					</a>
 					<div class="user-dropdown">
 						<div class="user-info">
 							<p class="user-name">{user.displayName || 'User'}</p>
 							<p class="user-email">{user.email}</p>
 						</div>
+						<a href={resolve('/profile')} class="profile-btn">Profile</a>
 						<button class="sign-out-btn" on:click={handleSignOut}>Sign Out</button>
 					</div>
 				</div>
@@ -133,6 +136,13 @@
 		transition: transform 0.2s;
 	}
 
+	.profile-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+	}
+
 	.user-avatar {
 		object-fit: cover;
 		border: 2px solid var(--color-theme-1);
@@ -180,6 +190,15 @@
 		margin-bottom: 0.75rem;
 		padding-bottom: 0.75rem;
 		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.profile-btn {
+		display: block;
+		margin-bottom: 0.5rem;
+		text-decoration: none;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-theme-2);
 	}
 
 	.user-name {

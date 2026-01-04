@@ -9,6 +9,8 @@ import {
 	query,
 	where,
 	orderBy,
+	updateDoc,
+	arrayUnion,
 	Timestamp
 } from 'firebase/firestore';
 
@@ -119,7 +121,7 @@ export class CalculationService {
 
 			const calculationRef = doc(db, COLLECTION_NAME, id);
 			const calculationDoc = await getDoc(calculationRef);
-			
+
 			if (calculationDoc.exists()) {
 				const data = calculationDoc.data();
 				// Verify the calculation belongs to the farm and field
@@ -188,6 +190,20 @@ export class CalculationService {
 			};
 
 			await setDoc(calculationRef, calculationDataToSave);
+			// Also push a lightweight summary into the Field document
+			try {
+				const fieldRef = doc(db, 'Fields', fieldId);
+				await updateDoc(fieldRef, {
+					calculations: arrayUnion({
+						id: calculationRef.id,
+						date: calculationDataToSave.date,
+						createdAt: calculationDataToSave.createdAt
+					}),
+					updatedAt: Timestamp.now()
+				});
+			} catch (e) {
+				console.warn('Warning: failed to append calculation summary to field', e);
+			}
 			return {
 				id: calculationRef.id,
 				...calculationDataToSave,
@@ -290,4 +306,3 @@ export class CalculationService {
 		}
 	}
 }
-

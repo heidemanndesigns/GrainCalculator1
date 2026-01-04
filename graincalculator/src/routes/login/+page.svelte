@@ -5,7 +5,7 @@
 	import { get } from 'svelte/store';
 
 	let authState = $state(get(authStore));
-	
+
 	// Subscribe to auth store changes
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((state) => {
@@ -22,6 +22,8 @@
 	let email = $state('');
 	let password = $state('');
 	let isSignUp = $state(false);
+	let firstName = $state('');
+	let lastName = $state('');
 	let formLoading = $state(false);
 
 	async function handleSubmit() {
@@ -32,7 +34,7 @@
 		formLoading = true;
 		try {
 			if (isSignUp) {
-				await authHandlers.signUp(email, password);
+				await authHandlers.signUp(email, password, firstName.trim(), lastName.trim());
 			} else {
 				await authHandlers.signIn(email, password);
 			}
@@ -91,7 +93,7 @@
 			<div class="sign-in">
 				<h1>{isSignUp ? 'Sign Up' : 'Sign In'}</h1>
 				<p class="subtitle">
-					{isSignUp 
+					{isSignUp
 						? 'Create an account to access your agriculture management tools'
 						: 'Sign in to access your agriculture management tools'}
 				</p>
@@ -99,6 +101,32 @@
 					<div class="error-message">{error}</div>
 				{/if}
 				<form on:submit|preventDefault={handleSubmit}>
+					{#if isSignUp}
+						<div class="form-grid">
+							<div class="form-group">
+								<label for="first-name">First name</label>
+								<input
+									type="text"
+									id="first-name"
+									bind:value={firstName}
+									placeholder="First name"
+									disabled={formLoading || loading}
+									autocomplete="given-name"
+								/>
+							</div>
+							<div class="form-group">
+								<label for="last-name">Last name</label>
+								<input
+									type="text"
+									id="last-name"
+									bind:value={lastName}
+									placeholder="Last name"
+									disabled={formLoading || loading}
+									autocomplete="family-name"
+								/>
+							</div>
+						</div>
+					{/if}
 					<div class="form-group">
 						<label for="email">Email</label>
 						<input
@@ -124,9 +152,9 @@
 							minlength="6"
 						/>
 					</div>
-					<button 
-						type="submit" 
-						class="btn btn-primary" 
+					<button
+						type="submit"
+						class="btn btn-primary"
 						disabled={formLoading || loading || !email || !password}
 					>
 						{formLoading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
@@ -135,9 +163,9 @@
 				<div class="toggle-mode">
 					<p>
 						{isSignUp ? 'Already have an account?' : "Don't have an account?"}
-						<button 
-							type="button" 
-							class="link-btn" 
+						<button
+							type="button"
+							class="link-btn"
 							on:click={toggleMode}
 							disabled={formLoading || loading}
 						>
@@ -235,6 +263,11 @@
 	form {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
+	}
+	.form-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
 		gap: 1rem;
 	}
 
@@ -363,6 +396,8 @@
 		h1 {
 			font-size: 1.5rem;
 		}
+		.form-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>
-

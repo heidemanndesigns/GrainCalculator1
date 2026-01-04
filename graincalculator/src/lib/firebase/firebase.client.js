@@ -39,6 +39,18 @@ try {
     dbInstance = getFirestore(firebaseApp);
 }
 export const db = dbInstance;
+// Basic startup diagnostics (browser only)
+if (typeof window !== 'undefined') {
+    try {
+        console.log('[Firebase] app initialized', {
+            name: firebaseApp.name,
+            projectId: firebaseApp.options?.projectId,
+            authDomain: firebaseApp.options?.authDomain
+        });
+    } catch {
+        // ignore
+    }
+}
 // enable IndexedDB persistence (best-effort but deprecated)
 // This function will be removed in a future major release.
 // Instead, set FirestoreSettings.localCache to an instance of PersistentLocalCache

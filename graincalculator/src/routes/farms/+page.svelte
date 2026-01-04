@@ -15,6 +15,11 @@
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((state) => {
 			authState = state;
+			console.log('[FarmsPage] auth state changed', {
+				loading: state.loading,
+				userId: state.user?.uid,
+				email: state.user?.email
+			});
 
 			// Redirect to login if not authenticated
 			if (browser && !state.loading && !state.user) {
@@ -39,21 +44,116 @@
 	let farmFormData = $state({
 		name: ''
 	});
+	// Field creation within farm edit modal
+	let modalFields = $state([]);
+	let modalFieldsLoading = $state(false);
+	let newField = $state({ name: '', acres: 0 });
+	let editingFieldId = $state(null);
+	let editingField = $state({ name: '', acres: 0 });
+
+	async function loadFieldsForFarm(farmId) {
+		if (!farmId) {
+			modalFields = [];
+			return;
+		}
+		modalFieldsLoading = true;
+		try {
+			modalFields = await fieldStore.getAll(farmId);
+		} catch (e) {
+			console.error('Error loading fields for farm:', e);
+			modalFields = [];
+		} finally {
+			modalFieldsLoading = false;
+		}
+	}
+
+	async function createFieldInModal() {
+		if (!editingFarmId) return;
+		if (!newField.name.trim() || Number(newField.acres) <= 0) {
+			error = 'Please provide a field name and acres';
+			return;
+		}
+		modalFieldsLoading = true;
+		try {
+			await fieldStore.create(editingFarmId, {
+				name: newField.name.trim(),
+				acres: Number(newField.acres)
+			});
+			newField = { name: '', acres: 0 };
+			await loadFieldsForFarm(editingFarmId);
+		} catch (e) {
+			console.error('Error creating field:', e);
+			error = e.message || 'Failed to create field';
+		} finally {
+			modalFieldsLoading = false;
+		}
+	}
+
+	function startEditField(f) {
+		editingFieldId = f.id;
+		editingField = { name: f.name, acres: f.acres };
+	}
+
+	function cancelEditField() {
+		editingFieldId = null;
+		editingField = { name: '', acres: 0 };
+	}
+
+	async function saveEditField() {
+		if (!editingFarmId || !editingFieldId) return;
+		if (!editingField.name.trim() || Number(editingField.acres) <= 0) {
+			error = 'Please provide a field name and acres';
+			return;
+		}
+		modalFieldsLoading = true;
+		try {
+			await fieldStore.update(editingFarmId, editingFieldId, {
+				name: editingField.name.trim(),
+				acres: Number(editingField.acres)
+			});
+			cancelEditField();
+			await loadFieldsForFarm(editingFarmId);
+		} catch (e) {
+			console.error('Error updating field:', e);
+			error = e.message || 'Failed to update field';
+		} finally {
+			modalFieldsLoading = false;
+		}
+	}
+
+	async function deleteFieldInModal(fieldId) {
+		if (!editingFarmId || !fieldId) return;
+		if (!confirm('Delete this field? This will not remove existing calculations, but they may be orphaned.')) return;
+		modalFieldsLoading = true;
+		try {
+			await fieldStore.remove(editingFarmId, fieldId);
+			if (editingFieldId === fieldId) cancelEditField();
+			await loadFieldsForFarm(editingFarmId);
+		} catch (e) {
+			console.error('Error deleting field:', e);
+			error = e.message || 'Failed to delete field';
+		} finally {
+			modalFieldsLoading = false;
+		}
+	}
 
 	let memberEmail = $state('');
 
 	// Load farms when user is available
 	$effect(() => {
 		if (user && !loading) {
+			console.log('[FarmsPage] user available, loading farms', { userId: user?.uid });
 			loadFarms();
 		}
 	});
 
 	async function loadFarms() {
 		if (!user) return;
+		console.log('[FarmsPage] loadFarms() start', { userId: user?.uid });
 		farmsLoading = true;
 		try {
 			farms = await farmStore.getAll();
+			console.log('[FarmsPage] loadFarms() result', { count: farms?.length });
 		} catch (err) {
 			console.error('Error loading farms:', err);
 			error = 'Failed to load farms';
@@ -64,15 +164,20 @@
 
 	function openFarmForm(farm) {
 		if (farm) {
+			console.log('[FarmsPage] openFarmForm(edit)', { id: farm.id, name: farm.name });
 			editingFarmId = farm.id;
 			farmFormData = {
 				name: farm.name
 			};
+			loadFieldsForFarm(farm.id);
 		} else {
+			console.log('[FarmsPage] openFarmForm(create)');
 			editingFarmId = null;
 			farmFormData = {
 				name: ''
 			};
+			modalFields = [];
+			newField = { name: '', acres: 0 };
 		}
 		error = '';
 		showFarmForm = true;
@@ -85,6 +190,11 @@
 	}
 
 	async function saveFarm() {
+		console.log('[FarmsPage] saveFarm() invoked', {
+			editingFarmId,
+			form: { ...farmFormData },
+			userId: user?.uid
+		});
 		if (!farmFormData.name.trim()) {
 			error = 'Farm name is required';
 			return;
@@ -94,9 +204,13 @@
 		error = '';
 		try {
 			if (editingFarmId) {
-				await farmStore.update(editingFarmId, { name: farmFormData.name.trim() });
+				console.log('[FarmsPage] updating farm', { id: editingFarmId });
+				const updated = await farmStore.update(editingFarmId, { name: farmFormData.name.trim() });
+				console.log('[FarmsPage] update complete', { updated });
 			} else {
-				await farmStore.create({ name: farmFormData.name.trim() });
+				console.log('[FarmsPage] creating farm with name', farmFormData.name.trim());
+				const created = await farmStore.create({ name: farmFormData.name.trim() });
+				console.log('[FarmsPage] create complete', { created });
 			}
 			await loadFarms();
 			closeFarmForm();
@@ -109,6 +223,7 @@
 	}
 
 	async function deleteFarm(id) {
+		console.log('[FarmsPage] deleteFarm()', { id });
 		if (!confirm('Are you sure you want to delete this farm? This will also delete all fields and calculations associated with it.')) {
 			return;
 		}
@@ -127,6 +242,7 @@
 	}
 
 	function openMemberForm(farmId) {
+		console.log('[FarmsPage] openMemberForm()', { farmId });
 		selectedFarmId = farmId;
 		memberEmail = '';
 		error = '';
@@ -141,6 +257,7 @@
 	}
 
 	async function addMember() {
+		console.log('[FarmsPage] addMember()', { selectedFarmId, memberEmail });
 		if (!memberEmail.trim()) {
 			error = 'Email is required';
 			return;
@@ -158,6 +275,7 @@
 			}
 
 			await farmStore.addMember(selectedFarmId, userToAdd.id);
+			console.log('[FarmsPage] member added', { selectedFarmId, memberUserId: userToAdd.id });
 			await loadFarms();
 			closeMemberForm();
 		} catch (err) {
@@ -169,6 +287,7 @@
 	}
 
 	async function removeMember(farmId, memberUserId) {
+		console.log('[FarmsPage] removeMember()', { farmId, memberUserId });
 		if (!confirm('Are you sure you want to remove this member from the farm?')) {
 			return;
 		}
@@ -335,6 +454,102 @@
 						</button>
 					</div>
 				</form>
+				{#if editingFarmId}
+					<hr class="section-divider" />
+					<h3>Fields</h3>
+					{#if modalFieldsLoading}
+						<div class="saving-message">Loading fields...</div>
+					{:else}
+						{#if modalFields.length === 0}
+							<p class="muted">No fields yet. Create one below.</p>
+						{:else}
+							<ul class="fields-list">
+								{#each modalFields as f}
+									<li>
+										{#if editingFieldId === f.id}
+											<div class="edit-field-row">
+												<input
+													type="text"
+													bind:value={editingField.name}
+													placeholder="Field name"
+													disabled={modalFieldsLoading}
+													onkeydown={(e) => e.stopPropagation()}
+												/>
+												<input
+													type="number"
+													step="0.01"
+													min="0"
+													bind:value={editingField.acres}
+													placeholder="Acres"
+													disabled={modalFieldsLoading}
+													onkeydown={(e) => e.stopPropagation()}
+												/>
+												<div class="row-actions">
+													<button type="button" class="btn btn-primary btn-sm" onclick={saveEditField} disabled={modalFieldsLoading}>
+														Save
+													</button>
+													<button type="button" class="btn btn-secondary btn-sm" onclick={cancelEditField} disabled={modalFieldsLoading}>
+														Cancel
+													</button>
+												</div>
+											</div>
+										{:else}
+											<div class="field-info">
+												<span class="field-name">{f.name}</span>
+												<span class="chip">{f.acres} acres</span>
+											</div>
+											<div class="row-actions">
+												<button type="button" class="link-btn" onclick={() => startEditField(f)} disabled={modalFieldsLoading}>Edit</button>
+												<button type="button" class="link-btn danger" onclick={() => deleteFieldInModal(f.id)} disabled={modalFieldsLoading}>Delete</button>
+											</div>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{/if}
+
+					<form
+						class="inline-form"
+						onsubmit={(e) => {
+							e.preventDefault();
+							createFieldInModal();
+						}}
+					>
+						<div class="form-row">
+							<div class="form-group">
+								<label for="new-field-name">Field Name *</label>
+								<input
+									id="new-field-name"
+									type="text"
+									bind:value={newField.name}
+									placeholder="e.g., North 40"
+									required
+									disabled={modalFieldsLoading}
+									onkeydown={(e) => e.stopPropagation()}
+								/>
+							</div>
+							<div class="form-group">
+								<label for="new-field-acres">Acres *</label>
+								<input
+									id="new-field-acres"
+									type="number"
+									step="0.01"
+									min="0"
+									bind:value={newField.acres}
+									required
+									disabled={modalFieldsLoading}
+									onkeydown={(e) => e.stopPropagation()}
+								/>
+							</div>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn btn-primary" disabled={modalFieldsLoading || !newField.name.trim() || Number(newField.acres) <= 0}>
+								{modalFieldsLoading ? 'Creating...' : 'Add Field'}
+							</button>
+						</div>
+					</form>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -781,6 +996,80 @@
 		margin-top: 2rem;
 	}
 
+	.section-divider {
+		border: none;
+		border-top: 1px solid #e5e7eb;
+		margin: 1.25rem 0;
+	}
+
+	.muted {
+		color: #6b7280;
+	}
+
+	.fields-list {
+		list-style: none;
+		margin: 0 0 1rem 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.fields-list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		background: rgba(255,255,255,.6);
+		border: 1px solid rgba(0,0,0,.06);
+		border-radius: 10px;
+		padding: 0.5rem 0.75rem;
+	}
+	.field-name {
+		font-weight: 600;
+		color: var(--color-text);
+	}
+	.field-info {
+		display: flex;
+		align-items: center;
+		gap: .5rem;
+	}
+	.inline-form .form-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem;
+	}
+	.edit-field-row {
+		display: grid;
+		grid-template-columns: 1.2fr .8fr auto;
+		align-items: center;
+		gap: .5rem;
+		width: 100%;
+	}
+	.row-actions {
+		display: flex;
+		gap: .5rem;
+	}
+	.btn-sm {
+		padding: 0.35rem 0.7rem;
+		border-radius: 8px;
+		font-size: .8rem;
+	}
+	.link-btn {
+		background: none;
+		border: none;
+		color: var(--color-theme-2);
+		cursor: pointer;
+		text-decoration: underline;
+		padding: 0;
+		font-size: .9rem;
+	}
+	.link-btn.danger {
+		color: #b91c1c;
+	}
+	@media (max-width: 640px) {
+		.inline-form .form-row {
+			grid-template-columns: 1fr;
+		}
+	}
 	/* Accessibility and motion preferences */
 	:focus-visible {
 		outline: 2px solid var(--color-theme-2);

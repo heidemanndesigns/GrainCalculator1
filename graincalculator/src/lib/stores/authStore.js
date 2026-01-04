@@ -5,8 +5,10 @@ import {
 	createUserWithEmailAndPassword,
 	signInWithEmailAndPassword,
 	signOut,
-	onAuthStateChanged
+	onAuthStateChanged,
+	updateProfile
 } from 'firebase/auth';
+import { userStore } from './userStore.svelte.js';
 
 // Auth store state
 export const authStore = writable({
@@ -23,6 +25,10 @@ if (typeof window !== 'undefined') {
 			loading: false,
 			error: null
 		});
+		// Ensure a profile doc exists and is updated from auth
+		if (user) {
+			userStore.ensureProfileFromAuth(user).catch(() => {});
+		}
 	});
 }
 
@@ -32,16 +38,35 @@ export const authHandlers = {
 	 * @param {string} email - User email
 	 * @param {string} password - User password
 	 */
-	signUp: async (email, password) => {
+	signUp: async (email, password, firstName, lastName) => {
 		try {
 			authStore.update((state) => ({ ...state, loading: true, error: null }));
 			const result = await createUserWithEmailAndPassword(auth, email, password);
+			// Update display name if provided
+			try {
+				if (firstName || lastName) {
+					await updateProfile(result.user, {
+						displayName: [firstName, lastName].filter(Boolean).join(' ').trim()
+					});
+				}
+				// Ensure profile doc with names
+				await userStore.ensureProfileFromAuth(result.user);
+				if (firstName || lastName) {
+					await userStore.update(result.user.uid, {
+						firstName: firstName || undefined,
+						lastName: lastName || undefined
+					});
+				}
+			} catch (e) {
+				// ignore profile update errors to not block signup
+				console.warn('Profile setup after signup failed', e);
+			}
 			// User state will be updated by onAuthStateChanged
 			return result.user;
 		} catch (error) {
 			console.error('Error signing up:', error);
 			let errorMessage = 'Failed to create account';
-			
+
 			// Provide user-friendly error messages
 			if (error.code === 'auth/email-already-in-use') {
 				errorMessage = 'This email is already registered. Please sign in instead.';
@@ -52,7 +77,7 @@ export const authHandlers = {
 			} else if (error.message) {
 				errorMessage = error.message;
 			}
-			
+
 			authStore.update((state) => ({
 				...state,
 				loading: false,
@@ -76,7 +101,7 @@ export const authHandlers = {
 		} catch (error) {
 			console.error('Error signing in:', error);
 			let errorMessage = 'Failed to sign in';
-			
+
 			// Provide user-friendly error messages
 			if (error.code === 'auth/user-not-found') {
 				errorMessage = 'No account found with this email. Please sign up first.';
@@ -89,7 +114,7 @@ export const authHandlers = {
 			} else if (error.message) {
 				errorMessage = error.message;
 			}
-			
+
 			authStore.update((state) => ({
 				...state,
 				loading: false,
@@ -118,4 +143,3 @@ export const authHandlers = {
 		}
 	}
 };
-
