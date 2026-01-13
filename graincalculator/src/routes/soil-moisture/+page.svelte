@@ -249,8 +249,8 @@
 	{/if}
 
 	{#if showFieldForm}
-		<div 
-			class="modal-overlay" 
+		<div
+			class="modal-overlay"
 			onclick={handleFieldFormOverlayClick}
 			onkeydown={(e) => e.key === 'Escape' && closeFieldForm()}
 			role="dialog"
@@ -311,8 +311,8 @@
 	{/if}
 
 	{#if showReadingForm}
-		<div 
-			class="modal-overlay" 
+		<div
+			class="modal-overlay"
 			onclick={handleReadingFormOverlayClick}
 			onkeydown={(e) => e.key === 'Escape' && closeReadingForm()}
 			role="dialog"
