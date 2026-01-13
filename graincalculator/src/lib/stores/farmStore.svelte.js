@@ -70,6 +70,16 @@ export function createFarmStore() {
 		farms = sortFarms(Array.from(merged.values()));
 	}
 
+	function finalizeIfReady() {
+		// If both listeners have either delivered or failed to attach,
+		// mark initialization complete and stop loading to avoid UI hang.
+		if (memberInitDone && ownerInitDone) {
+			publishMerged();
+			initialized = true;
+			loading = false;
+		}
+	}
+
 	/**
 	 * Initialize store by loading data from service
 	 * @param {string} userId - User ID from auth
@@ -118,6 +128,7 @@ export function createFarmStore() {
 			} catch (e) {
 				console.warn('[farmStore] failed to attach member listener', e);
 				memberInitDone = true;
+				finalizeIfReady();
 			}
 
 			// Listen to farms where the user is the owner
@@ -145,12 +156,14 @@ export function createFarmStore() {
 			} catch (e) {
 				console.warn('[farmStore] failed to attach owner listener', e);
 				ownerInitDone = true;
+				finalizeIfReady();
 			}
 		} catch (error) {
 			console.error('Error initializing farm store:', error);
 			farms = [];
 		} finally {
 			// loading is turned off when both listeners deliver first result
+			finalizeIfReady();
 		}
 	}
 
