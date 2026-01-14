@@ -7,6 +7,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 
 	// Authentication check
 	let authState = $state(get(authStore));
@@ -141,18 +142,20 @@
 
 	let memberEmail = $state('');
 
-	// Load farms when user is available
+	// Subscribe to farmStore once on mount; rely on it for updates
+	onMount(() => {
+		const unsub = farmStore.subscribe((list) => {
+			farms = list;
+			loadMemberLabels(list);
+		});
+		return () => unsub();
+	});
+
+	// Trigger initial load when auth is ready
 	$effect(() => {
 		if (user && !loading) {
 			console.log('[FarmsPage] user available, loading farms', { userId: user?.uid });
-			// subscribe to realtime updates from the store so UI updates without refresh
-			const unsub = farmStore.subscribe((list) => {
-				farms = list;
-				// Refresh member labels when farms list changes
-				loadMemberLabels(list);
-			});
 			loadFarms();
-			return unsub;
 		}
 	});
 
@@ -161,9 +164,8 @@
 		console.log('[FarmsPage] loadFarms() start', { userId: user?.uid });
 		farmsLoading = true;
 		try {
-			farms = await farmStore.getAll();
-			console.log('[FarmsPage] loadFarms() result', { count: farms?.length });
-			await loadMemberLabels(farms);
+			// This initializes listeners and lets the subscription update `farms`
+			await farmStore.getAll();
 		} catch (err) {
 			console.error('Error loading farms:', err);
 			error = 'Failed to load farms';
