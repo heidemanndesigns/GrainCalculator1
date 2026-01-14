@@ -3,6 +3,7 @@ import { authStore } from './authStore.js';
 import { get } from 'svelte/store';
 import { db } from '$lib/firebase/firebase.client';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 /**
  * Farm store - reactive state management for farms
@@ -20,21 +21,29 @@ export function createFarmStore() {
 	let memberInitDone = false;
 	let ownerInitDone = false;
 	/** @type {Map<string, any>} */
-	let memberFarmsMap = new Map();
+	let memberFarmsMap = new SvelteMap();
 	/** @type {Map<string, any>} */
-	let ownerFarmsMap = new Map();
+	let ownerFarmsMap = new SvelteMap();
+	// Simple subscription API for external consumers
+	/** @type {Set<(f:any[])=>void>} */
+	const subscribers = new SvelteSet();
+	function notify() {
+		for (const fn of subscribers) {
+			try { fn(farms); } catch { /* noop */ }
+		}
+	}
 
 	function resetRealtime() {
 		if (memberUnsub) {
-			try { memberUnsub(); } catch {}
+			try { memberUnsub(); } catch { /* noop */ }
 			memberUnsub = null;
 		}
 		if (ownerUnsub) {
-			try { ownerUnsub(); } catch {}
+			try { ownerUnsub(); } catch { /* noop */ }
 			ownerUnsub = null;
 		}
-		memberFarmsMap = new Map();
-		ownerFarmsMap = new Map();
+		memberFarmsMap = new SvelteMap();
+		ownerFarmsMap = new SvelteMap();
 		memberInitDone = false;
 		ownerInitDone = false;
 	}
@@ -66,8 +75,9 @@ export function createFarmStore() {
 
 	function publishMerged() {
 		// Merge owner + member maps (owner wins for duplicates but they should be identical)
-		const merged = new Map([...memberFarmsMap, ...ownerFarmsMap]);
+		const merged = new SvelteMap([...memberFarmsMap, ...ownerFarmsMap]);
 		farms = sortFarms(Array.from(merged.values()));
+		notify();
 	}
 
 	function finalizeIfReady() {
@@ -100,6 +110,9 @@ export function createFarmStore() {
 			// Set up realtime listeners (member and owner)
 			resetRealtime();
 			currentUserId = userId;
+			// Clear stale farms so UI doesn't show previous user's data
+			farms = [];
+			notify();
 
 			const farmsRef = collection(db, 'Farms');
 
@@ -343,6 +356,11 @@ export function createFarmStore() {
 		},
 		get loading() {
 			return loading;
+		},
+		subscribe: (fn) => {
+			subscribers.add(fn);
+			try { fn(farms); } catch { /* noop */ }
+			return () => subscribers.delete(fn);
 		},
 		getAll,
 		getOwnedFarms,

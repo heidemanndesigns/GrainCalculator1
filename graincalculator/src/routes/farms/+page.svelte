@@ -40,6 +40,8 @@
 	let editingFarmId = $state(null);
 	let selectedFarmId = $state(null);
 	let error = $state('');
+	// Cache of member userId -> label (name or email)
+	let memberLabels = $state({});
 
 	let farmFormData = $state({
 		name: ''
@@ -143,7 +145,14 @@
 	$effect(() => {
 		if (user && !loading) {
 			console.log('[FarmsPage] user available, loading farms', { userId: user?.uid });
+			// subscribe to realtime updates from the store so UI updates without refresh
+			const unsub = farmStore.subscribe((list) => {
+				farms = list;
+				// Refresh member labels when farms list changes
+				loadMemberLabels(list);
+			});
 			loadFarms();
+			return unsub;
 		}
 	});
 
@@ -154,12 +163,36 @@
 		try {
 			farms = await farmStore.getAll();
 			console.log('[FarmsPage] loadFarms() result', { count: farms?.length });
+			await loadMemberLabels(farms);
 		} catch (err) {
 			console.error('Error loading farms:', err);
 			error = 'Failed to load farms';
 		} finally {
 			farmsLoading = false;
 		}
+	}
+
+	async function loadMemberLabels(farmsList) {
+		const ids = new Set();
+		for (const f of farmsList || []) {
+			for (const id of f.memberIds || []) ids.add(id);
+			if (f.ownerId) ids.add(f.ownerId);
+		}
+		// Exclude current user; they render as "You"
+		if (user?.uid) ids.delete(user.uid);
+		const missing = Array.from(ids).filter((id) => !memberLabels[id]);
+		if (missing.length === 0) return;
+		const newLabels = { ...memberLabels };
+		for (const id of missing) {
+			try {
+				const u = await UserService.getById(id);
+				const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+				newLabels[id] = name || u?.email || id.substring(0, 8) + '...';
+			} catch {
+				newLabels[id] = id.substring(0, 8) + '...';
+			}
+		}
+		memberLabels = newLabels;
 	}
 
 	function openFarmForm(farm) {
@@ -379,7 +412,7 @@
 								{#each farm.memberIds as memberId (memberId)}
 									<li>
 										{memberId === farm.ownerId ? '👑 ' : ''}
-										{memberId === user.uid ? 'You' : memberId.substring(0, 8) + '...'}
+										{memberId === user.uid ? 'You' : (memberLabels[memberId] || memberId.substring(0, 8) + '...')}
 										{#if isOwner(farm) && memberId !== farm.ownerId}
 											<button class="btn-remove" onclick={() => removeMember(farm.id, memberId)} disabled={farmsLoading}>
 												Remove
