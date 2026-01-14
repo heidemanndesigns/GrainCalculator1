@@ -12,8 +12,8 @@
 	// Authentication check
 	let authState = $state(get(authStore));
 
-	// Subscribe to auth store changes
-	$effect(() => {
+	// Subscribe to auth store changes once on mount
+	onMount(() => {
 		const unsubscribe = authStore.subscribe((state) => {
 			authState = state;
 			console.log('[FarmsPage] auth state changed', {
@@ -21,13 +21,12 @@
 				userId: state.user?.uid,
 				email: state.user?.email
 			});
-
 			// Redirect to login if not authenticated
 			if (browser && !state.loading && !state.user) {
 				goto(resolve('/login'));
 			}
 		});
-		return unsubscribe;
+		return () => unsubscribe();
 	});
 
 	let user = $derived(authState.user);
@@ -141,6 +140,7 @@
 	}
 
 	let memberEmail = $state('');
+	let didInitLoad = $state(false);
 
 	// Subscribe to farmStore once on mount; rely on it for updates
 	onMount(() => {
@@ -153,7 +153,8 @@
 
 	// Trigger initial load when auth is ready
 	$effect(() => {
-		if (user && !loading) {
+		if (user && !loading && !didInitLoad) {
+			didInitLoad = true;
 			console.log('[FarmsPage] user available, loading farms', { userId: user?.uid });
 			loadFarms();
 		}
@@ -395,9 +396,9 @@
 
 					<div class="farm-actions">
 						{#if isOwner(farm)}
-							<button class="btn btn-secondary" onclick={() => openFarmForm(farm)} disabled={farmsLoading}>
+							<a class="btn btn-secondary" href={resolve(`/farms/${farm.id}`)} aria-label={`Edit ${farm.name}`}>
 								Edit
-							</button>
+							</a>
 							<button class="btn btn-secondary" onclick={() => openMemberForm(farm.id)} disabled={farmsLoading}>
 								Manage Members
 							</button>

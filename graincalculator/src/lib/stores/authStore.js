@@ -20,6 +20,13 @@ export const authStore = writable({
 // Initialize auth state listener
 if (typeof window !== 'undefined') {
 	onAuthStateChanged(auth, (user) => {
+		try {
+			console.log('[authStore] onAuthStateChanged', {
+				hasUser: !!user,
+				uid: user?.uid || null,
+				email: user?.email || null
+			});
+		} catch {}
 		authStore.set({
 			user,
 			loading: false,

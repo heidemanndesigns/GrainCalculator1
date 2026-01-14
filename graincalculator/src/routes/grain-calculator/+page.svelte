@@ -35,6 +35,8 @@
 	let fields = $state([]);
 	let selectedFarmId = $state('');
 	let selectedFieldId = $state('');
+	let selectedFarm = $derived(farms.find((f) => f.id === selectedFarmId));
+	let isOwnerSelectedFarm = $derived(!!(user && selectedFarm && selectedFarm.ownerId === user.uid));
 	let farmsLoading = $state(false);
 	let fieldsLoading = $state(false);
 	let showFieldForm = $state(false);
@@ -97,6 +99,10 @@
 	}
 
 	async function createField() {
+		if (!isOwnerSelectedFarm) {
+			calculationError = 'Only the farm owner can create fields.';
+			return;
+		}
 		if (!selectedFarmId || !newFieldName.trim() || newFieldAcres <= 0) {
 			calculationError = 'Please provide a field name and acres';
 			return;
@@ -369,8 +375,17 @@
 							<option value={field.id}>{field.name} ({field.acres} acres)</option>
 						{/each}
 					</select>
-					{#if selectedFarmId && !fieldsLoading}
-						<small><button type="button" class="link-button" onclick={() => showFieldForm = true} disabled={isTopSectionLocked}>+ Create new field</button></small>
+					{#if selectedFarmId && !fieldsLoading && isOwnerSelectedFarm}
+						<small>
+							<button
+								type="button"
+								class="link-button"
+								onclick={() => { if (isOwnerSelectedFarm) showFieldForm = true; }}
+								disabled={isTopSectionLocked || !isOwnerSelectedFarm}
+							>
+								+ Create new field
+							</button>
+						</small>
 					{/if}
 				</div>
 			</div>
@@ -504,7 +519,7 @@
 </section>
 {/if}
 
-{#if user && showFieldForm}
+{#if user && showFieldForm && isOwnerSelectedFarm}
 	<div
 		class="modal-overlay"
 		role="button"
@@ -560,7 +575,7 @@
 						<button type="button" class="btn btn-secondary" onclick={() => showFieldForm = false} disabled={fieldsLoading}>
 							Cancel
 						</button>
-						<button type="submit" class="btn btn-primary" disabled={fieldsLoading || !newFieldName.trim() || newFieldAcres <= 0}>
+						<button type="submit" class="btn btn-primary" disabled={fieldsLoading || !newFieldName.trim() || newFieldAcres <= 0 || !isOwnerSelectedFarm}>
 							{fieldsLoading ? 'Creating...' : 'Create Field'}
 						</button>
 					</div>
