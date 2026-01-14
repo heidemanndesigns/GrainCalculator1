@@ -948,8 +948,7 @@
 		color: var(--color-text);
 	}
 
-	.form-group input,
-	.form-group select {
+	.form-group input {
 		width: 100%;
 		padding: 0.75rem;
 		border: 2px solid rgba(0, 0, 0, 0.1);
@@ -959,14 +958,12 @@
 		transition: border-color 0.2s;
 	}
 
-	.form-group input:focus,
-	.form-group select:focus {
+	.form-group input:focus {
 		outline: none;
 		border-color: var(--color-theme-2);
 	}
 
-	.form-group input:disabled,
-	.form-group select:disabled {
+	.form-group input:disabled {
 		background-color: #e0e0e0;
 		cursor: not-allowed;
 		opacity: 0.6;
