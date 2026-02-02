@@ -1,7 +1,7 @@
 <script>
 	import { calculationStore } from '$lib/stores/calculationStore.svelte.js';
 
-	let { farmId, fieldId } = $props();
+	let { farmId, fieldId, refreshKey = 0 } = $props();
 
 	let calculations = $state([]);
 	let loading = $state(false);
@@ -9,6 +9,8 @@
 
 	// Load calculations when farmId or fieldId changes
 	$effect(() => {
+		// include refreshKey in dependencies so external changes can trigger reload
+		const _ = refreshKey;
 		if (farmId && fieldId) {
 			loadCalculations();
 		} else {
@@ -48,19 +50,22 @@
 		}
 	}
 
-	function formatDate(dateString) {
+	function formatDateOnly(dateString) {
 		if (!dateString) return 'N/A';
-		const date = new Date(dateString);
-		return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		const d = new Date(dateString);
+		return d.toLocaleDateString();
+	}
+	function formatDateTime(dateString) {
+		if (!dateString) return 'N/A';
+		const d = new Date(dateString);
+		return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 	}
 </script>
 
 <div class="calculation-history">
 	<div class="history-header">
 		<h3>Calculation History</h3>
-		<button class="refresh-btn" onclick={loadCalculations} disabled={loading}>
-			🔄 Refresh
-		</button>
+		<button class="refresh-btn" onclick={loadCalculations} disabled={loading}> 🔄 Refresh </button>
 	</div>
 
 	{#if error}
@@ -77,7 +82,8 @@
 				<div class="calculation-item">
 					<div class="calculation-header">
 						<div class="calc-info">
-							<span class="calc-date">{formatDate(calc.date)}</span>
+							<span class="calc-date">Measured: {formatDateOnly(calc.date)}</span>
+							<span class="calc-entered">Saved: {formatDateTime(calc.createdAt)}</span>
 							{#if calc.loadNumber}
 								<span class="calc-load">Load #{calc.loadNumber}</span>
 							{/if}
@@ -85,7 +91,11 @@
 								<span class="calc-operator">Operator: {calc.operator}</span>
 							{/if}
 						</div>
-						<button class="btn-delete" onclick={() => deleteCalculation(calc.id)} disabled={loading}>
+						<button
+							class="btn-delete"
+							onclick={() => deleteCalculation(calc.id)}
+							disabled={loading}
+						>
 							×
 						</button>
 					</div>
@@ -113,7 +123,9 @@
 						<div class="detail-row">
 							<div class="detail-col">
 								<span class="detail-label">Dry Bushels:</span>
-								<span class="detail-value highlight">{calc.calculatedDryBushels?.toFixed(2) || '0.00'}</span>
+								<span class="detail-value highlight"
+									>{calc.calculatedDryBushels?.toFixed(2) || '0.00'}</span
+								>
 							</div>
 							<div class="detail-col">
 								<span class="detail-label">Shrink Factor:</span>
@@ -225,6 +237,10 @@
 		color: var(--color-text);
 		font-size: 0.875rem;
 	}
+	.calc-entered {
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
 
 	.calc-load {
 		font-size: 0.875rem;
@@ -308,4 +324,3 @@
 		}
 	}
 </style>
-

@@ -34,68 +34,36 @@ export class CalculationService {
 			return [];
 		}
 
-		try {
-			// Verify user has access to the farm
-			const { FarmService } = await import('./farmService.js');
-			const farm = await FarmService.getById(userId, farmId);
-			if (!farm) {
-				console.warn('User does not have access to this farm');
-				return [];
-			}
-
-			const calculationsRef = collection(db, COLLECTION_NAME);
-			const q = query(
-				calculationsRef,
-				where('farmId', '==', farmId),
-				where('fieldId', '==', fieldId),
-				orderBy('date', 'desc'),
-				orderBy('createdAt', 'desc')
-			);
-			const snapshot = await getDocs(q);
-			const calculations = snapshot.docs.map((doc) => {
-				const data = doc.data();
-				return {
-					id: doc.id,
-					...data,
-					date: data.date?.toDate ? data.date.toDate().toISOString() : data.date,
-					createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-					updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
-				};
-			});
-			return calculations;
-		} catch (error) {
-			console.error('Error fetching calculations:', error);
-			// If index error, try without orderBy
-			try {
-				const calculationsRef = collection(db, COLLECTION_NAME);
-				const q = query(
-					calculationsRef,
-					where('farmId', '==', farmId),
-					where('fieldId', '==', fieldId)
-				);
-				const snapshot = await getDocs(q);
-				const calculations = snapshot.docs.map((doc) => {
-					const data = doc.data();
-					return {
-						id: doc.id,
-						...data,
-						date: data.date?.toDate ? data.date.toDate().toISOString() : data.date,
-						createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-						updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
-					};
-				});
-				// Sort manually
-				calculations.sort((a, b) => {
-					const dateA = new Date(a.date || a.createdAt);
-					const dateB = new Date(b.date || b.createdAt);
-					return dateB - dateA;
-				});
-				return calculations;
-			} catch (retryError) {
-				console.error('Error fetching calculations (retry):', retryError);
-				return [];
-			}
+		// Verify user has access to the farm
+		const { FarmService } = await import('./farmService.js');
+		const farm = await FarmService.getById(userId, farmId);
+		if (!farm) {
+			console.warn('User does not have access to this farm');
+			return [];
 		}
+
+		// Avoid composite index requirements:
+		// query by a single equality (fieldId) and sort on client
+		const calculationsRef = collection(db, COLLECTION_NAME);
+		const q = query(calculationsRef, where('fieldId', '==', fieldId));
+		const snapshot = await getDocs(q);
+		const calculations = snapshot.docs.map((doc) => {
+			const data = doc.data();
+			return {
+				id: doc.id,
+				...data,
+				date: data.date?.toDate ? data.date.toDate().toISOString() : data.date,
+				createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+				updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+			};
+		});
+		// Sort manually by createdAt desc (fallback to date)
+		calculations.sort((a, b) => {
+			const dateA = new Date(a.createdAt || a.date);
+			const dateB = new Date(b.createdAt || b.date);
+			return dateB - dateA;
+		});
+		return calculations;
 	}
 
 	/**

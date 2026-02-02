@@ -72,7 +72,10 @@
 					list.push({ id, label: 'You', isOwner: id === farm.ownerId });
 				} else {
 					const u = await UserService.getById(id);
-					const label = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim() || u?.email || id.substring(0, 8) + '...';
+					const label =
+						[u?.firstName, u?.lastName].filter(Boolean).join(' ').trim() ||
+						u?.email ||
+						id.substring(0, 8) + '...';
 					list.push({ id, label, isOwner: id === farm.ownerId });
 				}
 			}
@@ -157,7 +160,12 @@
 	}
 	async function deleteField(fieldId) {
 		if (!isOwner() || !fieldId) return;
-		if (!confirm('Delete this field? This will not remove existing calculations, but they may be orphaned.')) return;
+		if (
+			!confirm(
+				'Delete this field? This will not remove existing calculations, but they may be orphaned.'
+			)
+		)
+			return;
 		fieldsLoading = true;
 		try {
 			await fieldStore.remove(farm.id, fieldId);
@@ -182,7 +190,8 @@
 		try {
 			const userToAdd = await UserService.findByEmail(memberEmail.trim());
 			if (!userToAdd) {
-				error = 'User with this email not found. Please make sure they have registered for the app.';
+				error =
+					'User with this email not found. Please make sure they have registered for the app.';
 				membersLoading = false;
 				return;
 			}
@@ -223,111 +232,183 @@
 {:else if error}
 	<div class="error-message">{error}</div>
 {:else if farm}
-<section class="farm-detail">
-	<header class="header">
-		<h1>Farm: {farm.name}</h1>
-	</header>
+	<section class="farm-detail">
+		<header class="header">
+			<h1>Farm: {farm.name}</h1>
+		</header>
 
-	<div class="grid">
-		<div class="card-block">
-			<h2>Basic Info</h2>
-			<div class="form-group">
-				<label for="farm-name">Farm Name</label>
-				<input id="farm-name" type="text" bind:value={farmForm.name} disabled={!isOwner() || savingFarm} />
-			</div>
-			{#if isOwner()}
-				<button class="btn btn-primary" onclick={saveFarm} disabled={savingFarm || !farmForm.name.trim()}>
-					{savingFarm ? 'Saving...' : 'Save'}
-				</button>
-			{/if}
-		</div>
-
-		<div class="card-block">
-			<h2>Members</h2>
-			<ul class="members">
-				{#each members as m (m.id)}
-					<li>
-						<span>{m.isOwner ? '👑 ' : ''}{m.label}</span>
-						{#if isOwner() && !m.isOwner}
-							<button class="link-btn danger" onclick={() => removeMember(m.id)} disabled={membersLoading}>Remove</button>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-			{#if isOwner()}
-				<div class="inline-form">
-					<div class="form-group">
-						<label for="member-email">Add member by email</label>
-						<input id="member-email" type="email" bind:value={memberEmail} placeholder="user@example.com" disabled={membersLoading} />
-					</div>
-					<button class="btn btn-primary" onclick={addMember} disabled={membersLoading || !memberEmail.trim()}>
-						{membersLoading ? 'Adding...' : 'Add Member'}
-					</button>
+		<div class="grid">
+			<div class="card-block">
+				<h2>Basic Info</h2>
+				<div class="form-group">
+					<label for="farm-name">Farm Name</label>
+					<input
+						id="farm-name"
+						type="text"
+						bind:value={farmForm.name}
+						disabled={!isOwner() || savingFarm}
+					/>
 				</div>
-			{/if}
-		</div>
+				{#if isOwner()}
+					<button
+						class="btn btn-primary"
+						onclick={saveFarm}
+						disabled={savingFarm || !farmForm.name.trim()}
+					>
+						{savingFarm ? 'Saving...' : 'Save'}
+					</button>
+				{/if}
+			</div>
 
-		<div class="card-block">
-			<h2>Fields</h2>
-			{#if fields.length === 0}
-				<p class="muted">No fields yet.</p>
-			{:else}
-				<ul class="fields">
-					{#each fields as f (f.id)}
+			<div class="card-block">
+				<h2>Members</h2>
+				<ul class="members">
+					{#each members as m (m.id)}
 						<li>
-							{#if editingFieldId === f.id}
-								<div class="edit-field-row">
-									<input type="text" bind:value={editingField.name} placeholder="Field name" disabled={fieldsLoading} />
-									<input type="number" step="0.01" min="0" bind:value={editingField.acres} placeholder="Acres" disabled={fieldsLoading} />
-									<div class="row-actions">
-										<button class="btn btn-primary btn-sm" onclick={saveEditField} disabled={fieldsLoading}>Save</button>
-										<button class="btn btn-secondary btn-sm" onclick={cancelEditField} disabled={fieldsLoading}>Cancel</button>
-									</div>
-								</div>
-							{:else}
-								<div class="left">
-									<strong>{f.name}</strong>
-									<span class="chip">{f.acres} acres</span>
-								</div>
-								{#if isOwner()}
-									<div class="row-actions">
-										<button class="link-btn" onclick={() => startEditField(f)} disabled={fieldsLoading}>Edit</button>
-										<button class="link-btn danger" onclick={() => deleteField(f.id)} disabled={fieldsLoading}>Delete</button>
-									</div>
-								{/if}
+							<span>{m.isOwner ? '👑 ' : ''}{m.label}</span>
+							{#if isOwner() && !m.isOwner}
+								<button
+									class="link-btn danger"
+									onclick={() => removeMember(m.id)}
+									disabled={membersLoading}>Remove</button
+								>
 							{/if}
 						</li>
 					{/each}
 				</ul>
-			{/if}
-			{#if isOwner()}
-				<form
-					class="inline-form"
-					onsubmit={(e) => {
-						e.preventDefault();
-						createField();
-					}}
-				>
-					<div class="form-row">
+				{#if isOwner()}
+					<div class="inline-form">
 						<div class="form-group">
-							<label for="new-field-name">Field Name *</label>
-							<input id="new-field-name" type="text" bind:value={newField.name} placeholder="e.g., North 40" required disabled={fieldsLoading} />
+							<label for="member-email">Add member by email</label>
+							<input
+								id="member-email"
+								type="email"
+								bind:value={memberEmail}
+								placeholder="user@example.com"
+								disabled={membersLoading}
+							/>
 						</div>
-						<div class="form-group">
-							<label for="new-field-acres">Acres *</label>
-							<input id="new-field-acres" type="number" step="0.01" min="0" bind:value={newField.acres} required disabled={fieldsLoading} />
-						</div>
-					</div>
-					<div class="form-actions">
-						<button type="submit" class="btn btn-primary" disabled={fieldsLoading || !newField.name.trim() || Number(newField.acres) <= 0}>
-							{fieldsLoading ? 'Creating...' : 'Add Field'}
+						<button
+							class="btn btn-primary"
+							onclick={addMember}
+							disabled={membersLoading || !memberEmail.trim()}
+						>
+							{membersLoading ? 'Adding...' : 'Add Member'}
 						</button>
 					</div>
-				</form>
-			{/if}
+				{/if}
+			</div>
+
+			<div class="card-block">
+				<h2>Fields</h2>
+				{#if fields.length === 0}
+					<p class="muted">No fields yet.</p>
+				{:else}
+					<ul class="fields">
+						{#each fields as f (f.id)}
+							<li>
+								{#if editingFieldId === f.id}
+									<div class="edit-field-row">
+										<input
+											type="text"
+											bind:value={editingField.name}
+											placeholder="Field name"
+											disabled={fieldsLoading}
+										/>
+										<input
+											type="number"
+											step="0.01"
+											min="0"
+											bind:value={editingField.acres}
+											placeholder="Acres"
+											disabled={fieldsLoading}
+										/>
+										<div class="row-actions">
+											<button
+												class="btn btn-primary btn-sm"
+												onclick={saveEditField}
+												disabled={fieldsLoading}>Save</button
+											>
+											<button
+												class="btn btn-secondary btn-sm"
+												onclick={cancelEditField}
+												disabled={fieldsLoading}>Cancel</button
+											>
+										</div>
+									</div>
+								{:else}
+									<div class="left">
+										<a href={resolve(`/farms/${params.id}/fields/${f.id}`)} class="field-link">
+											<strong>{f.name}</strong>
+										</a>
+										<span class="chip">{f.acres} acres</span>
+									</div>
+									{#if isOwner()}
+										<div class="row-actions">
+											<button
+												class="link-btn"
+												onclick={() => startEditField(f)}
+												disabled={fieldsLoading}>Edit</button
+											>
+											<button
+												class="link-btn danger"
+												onclick={() => deleteField(f.id)}
+												disabled={fieldsLoading}>Delete</button
+											>
+										</div>
+									{/if}
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if isOwner()}
+					<form
+						class="inline-form"
+						onsubmit={(e) => {
+							e.preventDefault();
+							createField();
+						}}
+					>
+						<div class="form-row">
+							<div class="form-group">
+								<label for="new-field-name">Field Name *</label>
+								<input
+									id="new-field-name"
+									type="text"
+									bind:value={newField.name}
+									placeholder="e.g., North 40"
+									required
+									disabled={fieldsLoading}
+								/>
+							</div>
+							<div class="form-group">
+								<label for="new-field-acres">Acres *</label>
+								<input
+									id="new-field-acres"
+									type="number"
+									step="0.01"
+									min="0"
+									bind:value={newField.acres}
+									required
+									disabled={fieldsLoading}
+								/>
+							</div>
+						</div>
+						<div class="form-actions">
+							<button
+								type="submit"
+								class="btn btn-primary"
+								disabled={fieldsLoading || !newField.name.trim() || Number(newField.acres) <= 0}
+							>
+								{fieldsLoading ? 'Creating...' : 'Add Field'}
+							</button>
+						</div>
+					</form>
+				{/if}
+			</div>
 		</div>
-	</div>
-</section>
+	</section>
 {/if}
 
 <style>
@@ -357,26 +438,27 @@
 	}
 	.card-block {
 		background: white;
-		border: 1px solid rgba(0,0,0,0.06);
+		border: 1px solid rgba(0, 0, 0, 0.06);
 		border-radius: 14px;
-		box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 		padding: 1.25rem;
 	}
 	h2 {
 		margin: 0 0 1rem 0;
 		color: var(--color-text);
 	}
-	.members, .fields {
+	.members,
+	.fields {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: .5rem;
+		gap: 0.5rem;
 	}
 	.fields .left {
 		display: flex;
-		gap: .5rem;
+		gap: 0.5rem;
 		align-items: center;
 	}
 	.inline-form .form-row {
@@ -392,14 +474,15 @@
 	}
 	.form-group input {
 		padding: 0.75rem;
-		border: 1px solid rgba(0,0,0,0.12);
+		border: 1px solid rgba(0, 0, 0, 0.12);
 		border-radius: 10px;
 		font-size: 1rem;
 		background: #f8fafc;
 	}
-	.form-actions, .row-actions {
+	.form-actions,
+	.row-actions {
 		display: flex;
-		gap: .5rem;
+		gap: 0.5rem;
 	}
 	.btn {
 		padding: 0.55rem 0.95rem;
@@ -421,7 +504,7 @@
 	.btn-sm {
 		padding: 0.35rem 0.7rem;
 		border-radius: 8px;
-		font-size: .8rem;
+		font-size: 0.8rem;
 	}
 	.link-btn {
 		background: none;
@@ -430,7 +513,7 @@
 		cursor: pointer;
 		text-decoration: underline;
 		padding: 0;
-		font-size: .9rem;
+		font-size: 0.9rem;
 	}
 	.link-btn.danger {
 		color: #b91c1c;

@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Helper to fetch a farm doc
+    function farmDoc(farmId) {
+      return get(/databases/$(database)/documents/Farms/$(farmId));
+    }
+
+    // Member/owner check against a farm document
+    function isFarmMemberByDoc(farm) {
+      return farm.data.ownerId == request.auth.uid ||
+        (farm.data.memberIds != null && request.auth.uid in farm.data.memberIds);
+    }
+
+    // Farms
+    match /Farms/{farmId} {
+      // Allow reads to owners OR members (fixes ownerId listener errors)
+      allow read: if isAuthed() && isFarmMemberByDoc(resource);
+
+      // Owner creates and should include themselves in memberIds
+      allow create: if isAuthed()
+        && request.resource.data.ownerId == request.auth.uid
+        && (request.resource.data.memberIds != null
+            && request.auth.uid in request.resource.data.memberIds);
+
+      // Only owner can modify/delete
+      allow update, delete: if isAuthed()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Fields (each field stores farmId)
+    match /Fields/{fieldId} {
+      // Restrict reads to farm members (previously was any signed-in user)
+      allow read: if isAuthed()
+        && isFarmMemberByDoc(farmDoc(resource.data.farmId));
+
+      // Create allowed for members of parent farm
+      allow create: if isAuthed()
+        && request.resource.data.farmId != null
+        && isFarmMemberByDoc(farmDoc(request.resource.data.farmId));
+
+      // Update/delete allowed for members of parent farm
+      allow update, delete: if isAuthed()
+        && resource.data.farmId != null
+        && isFarmMemberByDoc(farmDoc(resource.data.farmId));
+    }
+
+    // Calculations (flat collection where each doc has farmId and fieldId)
+    match /calculations/{calcId} {
+      // Member/owner of the farm can read/create/update/delete calculations
+      // Be tolerant of legacy docs that may not have farmId but do have fieldId
+      allow read: if isAuthed() && (
+        (resource.data.farmId != null && isFarmMemberByDoc(farmDoc(resource.data.farmId))) ||
+        (resource.data.fieldId != null && isFarmMemberByDoc(
+          farmDoc(get(/databases/$(database)/documents/Fields/$(resource.data.fieldId)).data.farmId)
+        ))
+      );
+
+      allow create: if isAuthed()
+        && request.resource.data.farmId != null
+        && isFarmMemberByDoc(farmDoc(request.resource.data.farmId));
+
+      allow update, delete: if isAuthed() && (
+        (resource.data.farmId != null && isFarmMemberByDoc(farmDoc(resource.data.farmId))) ||
+        (resource.data.fieldId != null && isFarmMemberByDoc(
+          farmDoc(get(/databases/$(database)/documents/Fields/$(resource.data.fieldId)).data.farmId)
+        ))
+      );
+    }
+
+    // Users
+    match /Users/{userId} {
+      allow read: if isAuthed();
+      // Keep behavior consistent with previous rules (no delete)
+      allow create, update: if isAuthed() && request.auth.uid == userId;
+    }
+  }
+}
