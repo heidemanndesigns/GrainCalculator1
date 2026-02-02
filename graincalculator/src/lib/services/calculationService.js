@@ -190,19 +190,30 @@ export class CalculationService {
 			};
 
 			await setDoc(calculationRef, calculationDataToSave);
-			// Also push a lightweight summary into the Field document
+			// Also push the full calculation object into the Field document's calculations array
 			try {
 				const fieldRef = doc(db, 'Fields', fieldId);
+				const calculationSummaryForField = {
+					id: calculationRef.id,
+					date: calculationDataToSave.date,
+					createdAt: calculationDataToSave.createdAt,
+					updatedAt: calculationDataToSave.updatedAt,
+					operator: calculationDataToSave.operator,
+					loadNumber: calculationDataToSave.loadNumber,
+					wetWeight: calculationDataToSave.wetWeight,
+					moistureContent: calculationDataToSave.moistureContent,
+					targetMoisture: calculationDataToSave.targetMoisture,
+					manualShrinkFactor: calculationDataToSave.manualShrinkFactor,
+					calculatedWetBushels: calculationDataToSave.calculatedWetBushels,
+					calculatedDryWeight: calculationDataToSave.calculatedDryWeight,
+					calculatedDryBushels: calculationDataToSave.calculatedDryBushels
+				};
 				await updateDoc(fieldRef, {
-					calculations: arrayUnion({
-						id: calculationRef.id,
-						date: calculationDataToSave.date,
-						createdAt: calculationDataToSave.createdAt
-					}),
+					calculations: arrayUnion(calculationSummaryForField),
 					updatedAt: Timestamp.now()
 				});
 			} catch (e) {
-				console.warn('Warning: failed to append calculation summary to field', e);
+				console.warn('Warning: failed to append calculation to field', e);
 			}
 			return {
 				id: calculationRef.id,
